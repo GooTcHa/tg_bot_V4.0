@@ -35,7 +35,9 @@ async def start_chat(message, state: FSMContext):
         await message.answer(f"Здаравствуйте {message.from_user.first_name}!\nВас преветствует LabaHelperBot.",
                              reply_markup=keyboard.get_user_start_kbd())
 
-
+############################################################################
+###USER PART###############################################################
+############################################################################
 @dp.message_handler(content_types=['text'], state=st.UserStates.user_start_state)
 async def first_user_page_message(message, state: FSMContext):
     """User choose bot abilities"""
@@ -55,7 +57,7 @@ async def first_user_page_message(message, state: FSMContext):
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.user_choose_language_state)
-async def first_user_page_message(message, state: FSMContext):
+async def save_user_language(message, state: FSMContext):
     if message.text in config.languages != -1:
         async with state.proxy() as data:
             data['language'] = message.text
@@ -63,6 +65,28 @@ async def first_user_page_message(message, state: FSMContext):
             await message.answer(f"Вы выбрали {data['language']}\nОтправте фотографию вашего условия.")
     else:
         await message.answer("Я тебя не понимаю!\nПопробуй ещё раз!", reply_markup = keyboard.get_languages_kbd())
+
+@dp.message_handler(lambda message: not message.photo, state= st.UserStates.user_send_photo_state)
+async def user_wrong_photo_message(message, state: FSMContext):
+    await message.answer(f"Это не фото! Попробуйте ещё раз!")
+
+
+@dp.message_handler(content_types=['photo'], state= st.UserStates.user_send_photo_state)
+async def save_user_photo(message, state: FSMContext):
+        async with state.proxy() as data:
+            data['photo'] = message.photo[0].file_id
+            await st.UserStates.user_send_description_state.set()
+            await message.answer(f"Фотография условия сохранена!\nОсталось ввести дополнительные сведения"
+                                 f" о лабораторной: ", reply_markup = keyboard.get_empty_description_kbd())
+
+
+@dp.message_handler(content_types=['text'], state=st.UserStates.user_send_description_state)
+async def user_send_description(message, state: FSMContext):
+    async with state.proxy() as data:
+        data['descr'] = message.text()
+        await bot.send_photo(config.main_account, data['photo'], f"{data}")
+        await message.answer("Ваш заказ сохранён и отправлен на проверку!")
+
 
 # @dp.message_handler(commands=['help'], state='*')
 # async def help_message(message):

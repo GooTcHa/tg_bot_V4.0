@@ -27,3 +27,10 @@ def get_languages_kbd() -> ReplyKeyboardMarkup:
                KeyboardButton("ASSEMBLER"))
 
     return markup
+
+
+def get_empty_description_kbd() -> ReplyKeyboardMarkup:
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(KeyboardButton("Дополнительных сведений нет"))
+
+    return markup

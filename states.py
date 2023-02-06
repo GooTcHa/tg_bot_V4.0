@@ -9,3 +9,4 @@ class UserStates(StatesGroup):
     user_start_state = State()
     user_choose_language_state = State()
     user_send_photo_state = State()
+    user_send_description_state = State()

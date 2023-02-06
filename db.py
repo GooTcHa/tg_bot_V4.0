@@ -1,34 +1,13 @@
 import pymysql
 from config import host, user, password, db_name
 
+
 async def connect_db():
     pass
-    # try:
-    #     connection = pymysql.connect(
-    #         host=host,
-    #         port=3306,
-    #         user=user,
-    #         password=password,
-    #         database=db_name,
-    #         cursorclass=pymysql.cursors.DictCursor
-    #     )
-    #     print("Database was connected!")
-    #     with connection.cursor() as cur:
-    #         cur.execute(f"INSERT INTO worker_list (worker_id, worker_name, worker_balance) VALUES (1208266563, 'name', 13.40)")
-    #         connection.commit()
-    #
-    #         if not cur.fetchall():
-    #             return False
-    #         return True
-    #
-    # except Exception as ex:
-    #     print(ex)
-
-connection: pymysql.connect
 
 
-"""CHECK IF USER HAS WORKER STATUS"""
 async def ifUserIsWorker(message) -> bool:
+    """CHECK IF USER HAS WORKER STATUS"""
     try:
         connection = pymysql.connect(
             host=host,
