@@ -66,6 +66,7 @@ async def save_user_language(message, state: FSMContext):
     else:
         await message.answer("Я тебя не понимаю!\nПопробуй ещё раз!", reply_markup = keyboard.get_languages_kbd())
 
+
 @dp.message_handler(lambda message: not message.photo, state= st.UserStates.user_send_photo_state)
 async def user_wrong_photo_message(message, state: FSMContext):
     await message.answer(f"Это не фото! Попробуйте ещё раз!")
@@ -73,17 +74,17 @@ async def user_wrong_photo_message(message, state: FSMContext):
 
 @dp.message_handler(content_types=['photo'], state= st.UserStates.user_send_photo_state)
 async def save_user_photo(message, state: FSMContext):
-        async with state.proxy() as data:
-            data['photo'] = message.photo[0].file_id
-            await st.UserStates.user_send_description_state.set()
-            await message.answer(f"Фотография условия сохранена!\nОсталось ввести дополнительные сведения"
-                                 f" о лабораторной: ", reply_markup = keyboard.get_empty_description_kbd())
+    async with state.proxy() as data:
+        data['photo'] = message.photo[0].file_id
+        await st.UserStates.user_send_description_state.set()
+        await message.answer(f"Фотография условия сохранена!\nОсталось ввести дополнительные сведения"
+                             f" о лабораторной: ", reply_markup = keyboard.get_empty_description_kbd())
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.user_send_description_state)
 async def user_send_description(message, state: FSMContext):
     async with state.proxy() as data:
-        data['descr'] = message.text()
+        data['descr'] = message.text
         await bot.send_photo(config.main_account, data['photo'], f"{data}")
         await message.answer("Ваш заказ сохранён и отправлен на проверку!")
 
