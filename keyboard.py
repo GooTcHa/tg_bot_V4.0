@@ -34,3 +34,9 @@ def get_empty_description_kbd() -> ReplyKeyboardMarkup:
     markup.add(KeyboardButton("Дополнительных сведений нет"))
 
     return markup
+
+
+def clear_kbd() -> ReplyKeyboardMarkup:
+    markup = ReplyKeyboardRemove()
+
+    return markup
