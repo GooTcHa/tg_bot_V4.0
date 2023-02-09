@@ -2,7 +2,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
     InlineKeyboardButton
 
 
-def get_user_start_kbd() -> ReplyKeyboardMarkup:
+def user_start_kbd() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("Заказать лабу"),
                KeyboardButton("Помощь"),
@@ -11,7 +11,7 @@ def get_user_start_kbd() -> ReplyKeyboardMarkup:
     return markup
 
 
-def get_worker_start_kbd() -> ReplyKeyboardMarkup:
+def worker_start_kbd() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("Получить список заказов"),
                KeyboardButton("Помощь"),
@@ -20,7 +20,7 @@ def get_worker_start_kbd() -> ReplyKeyboardMarkup:
     return markup
 
 
-def get_languages_kbd() -> ReplyKeyboardMarkup:
+def languages_kbd() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("C++"),
                KeyboardButton("Java"),
@@ -29,7 +29,7 @@ def get_languages_kbd() -> ReplyKeyboardMarkup:
     return markup
 
 
-def get_empty_description_kbd() -> ReplyKeyboardMarkup:
+def empty_description_kbd() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("Дополнительных сведений нет"))
 
@@ -38,5 +38,15 @@ def get_empty_description_kbd() -> ReplyKeyboardMarkup:
 
 def clear_kbd() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardRemove()
+
+    return markup
+
+
+def accept_order_order_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Принять", callback_data='accept_order')],
+        [InlineKeyboardButton("Отклонить", callback_data='decline_order')],
+        [InlineKeyboardButton("Заблокировать пользователя", callback_data='ban_user')]
+    ])
 
     return markup

@@ -1,3 +1,6 @@
+from datetime import datetime
+from random import random
+
 import pymysql
 from config import host, user, password, db_name
 
@@ -18,55 +21,121 @@ async def ifUserIsWorker(message) -> bool:
             cursorclass=pymysql.cursors.DictCursor
         )
         print("Database was connected!")
-        with connection.cursor() as cur:
-            cur.execute(f"SELECT * FROM worker_list WHERE worker_id = {message.chat.id}")
-            if not cur.fetchall():
-                return False
-            return True
+        try:
+            async with connection.cursor() as cur:
+                cur.execute(f"SELECT * FROM worker_list WHERE worker_id = {message.chat.id}")
+                if not cur.fetchall():
+                    return False
+                return True
+        finally:
+            connection.close()
 
     except Exception as ex:
         print(ex)
 
 
-# import sqlite3
-# from pathlib import Path
-# import os.path
-# from random import randint
-#
-#
-# async def database_connect() -> None:
-#     global db, cursor
-#
-#     sqlite_file = 'D:\\Projects\\Python\\try-bot\\data\\db.db'
-#     if os.path.exists(sqlite_file):
-#         print('File exists')
-#     else:
-#         print('File NOT exists')
-#     db = sqlite3.connect(sqlite_file)
-#     cursor = db.cursor()
-#
-#
-# async def add_user(message):
-#     cursor.execute(f"SELECT * FROM users WHERE userid = {message.chat.id} ;")
-#     if not cursor.fetchall():
-#         cursor.execute(""f"INSERT INTO users(userid) VALUES({message.chat.id});""")
-#         db.commit()
-#
-#
-# async def check_order_existence(message):
-#     cursor.execute(f"SELECT * FROM user_order WHERE userid = {message.chat.id} ;")
-#     if not cursor.fetchall():
-#         return True
-#
-#     return False
-#
-#
-# async def add_order(message, data):
-#     cursor.execute(f"SELECT order_id FROM user_order;")
-#     o_id = randint(1000, 9999)
-#     while cursor.fetchall().count(o_id) > 0:
-#         o_id = randint(1000, 9999)
-#     cursor.execute(""f"INSERT INTO user_order VALUES(?, ?, ?, ?, ?, ?, ?);""", (message.chat.id, f"{data['language']}",
-#                                                                              data['condition'], data['special'], '',
-#                                                                              "wait", o_id))
-#     db.commit()
+async def saveUserOrder(message, data) -> None:
+    """SAVE USER ORDER"""
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("Database was connected!")
+        try:
+            async with connection.cursor() as cur:
+                num = random.randint(1000, 9999)
+                cur.execute(f"""SELECT user_id FROM order_list""")
+                while num in cur.fetchall != -1:
+                    num = random.randint(1000, 9999)
+                date = datetime.date.today()
+                day = datetime.timedelta(days=2)
+                date = date + day
+                if data['doc']:
+                    cur.execute(f"INSERT INTO order_list(order_id, user_id, language, doc,"
+                                f" text, deadline, state) VALUES('{num}', '{message.chat.id}',{data['language']},"
+                                f" {data['doc']}, {data['descr']}, {date}, 0)")
+                else:
+                    cur.execute(f"INSERT INTO order_list(order_id, user_id, language, photo,"
+                                f" text, deadline, state) VALUES('{num}', '{message.chat.id}',{data['language']},"
+                                f" {data['photo']}, {data['descr']}, {date}, 0)")
+                connection.commit()
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print("error1")
+        print(ex)
+
+
+async def printFreeOrders() -> None:
+    """SAVE USER ORDER"""
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("Database was connected!")
+        pass
+        #TODO print free orders
+        # with connection.cursor() as cur:
+        async with connection.cursor() as cur:
+            cur.execute(f"INSERT INTO order_list () VALUES ({3})")
+
+
+    except Exception as ex:
+        print(ex)
+
+
+async def accept_order(user_id):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        async with connection.cursor() as cur:
+            date = datetime.date.today()
+            day = datetime.timedelta(days=2)
+            date = date + day
+            cur.execute(f"UPDDATE order_list SET state = {1}, deadline = {date} WHERE user_id = {user_id}")
+            connection.commit()
+
+    except Exception as ex:
+        print(ex)
+
+
+if __name__ == '__main__':
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        with connection.cursor() as cur:
+
+            # str = "ldfg"
+            # # cur.execute(f"INSERT INTO order_list(order_id, user_id, worker_id, language) VALUES({1235}, {1235}, {2131}, {str});")
+            # # connection.commit()
+            # # cur.execute("SELECT * FROM order_list")
+            cur.execute(f"INSERT INTO try(tt, pp, yy) VALUES(23123, 23242, '{'skdf'}');")
+            connection.commit()
+            # cur.execute("SELECT * FROM try")
+            # print(cur.fetchall(), sep='\n')
+
+    except Exception as ex:
+        print(ex)
