@@ -4,6 +4,7 @@ from aiogram.dispatcher.filters.state import StatesGroup, State
 class UserStates(StatesGroup):
     """WORKER STATES"""
     worker_start_state = State()
+    worker_price_state = State()
 
     """USER STATES"""
     user_start_state = State()
