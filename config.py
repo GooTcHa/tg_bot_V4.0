@@ -1,3 +1,4 @@
+from aiocryptopay import AioCryptoPay, Networks
 from enum import Enum
 
 token = '5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE'
@@ -12,6 +13,10 @@ db_name = 'db'
 languages = {'C++' , 'Java', 'ASSEMBLER'}
 
 main_account = 1208266563
+
+#
+crypto = AioCryptoPay(token='6615:AAqfEMEaHHvCrFRPvVnWuJ96xzvvur8Q1fq', network=Networks.TEST_NET)
+
 
 ##########################################################
 

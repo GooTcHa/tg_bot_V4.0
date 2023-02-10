@@ -3,6 +3,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher import FSMContext
 
+from aiocryptopay import AioCryptoPay, Networks
+
 import keyboard
 import states
 import states as st
@@ -22,6 +24,21 @@ async def on_startup(arg):
 @dp.message_handler(commands=['start'], state='*')
 async def start_chat(message, state: FSMContext):
     """User start chat"""
+    profile = await config.crypto.get_me()
+    currencies = await config.crypto.get_currencies()
+    balance = await config.crypto.get_balance()
+    rates = await config.crypto.get_exchange_rates()
+
+    print(profile, currencies, balance, rates, sep='\n')
+
+    invoice = await config.crypto.create_invoice(asset='TON', amount=1.5)
+
+    await message.answer(invoice.pay_url)
+    print(invoice.pay_url)
+
+    invoices = await config.crypto.get_invoices(invoice_ids=invoice.invoice_id)
+    print(invoices.status)
+
 
     if await db.ifUserIsWorker(message):
 
