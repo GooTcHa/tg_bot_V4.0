@@ -54,7 +54,7 @@ def accept_order_ikb() -> InlineKeyboardMarkup:
 
 def worker_watch_ikb() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("Предложить цену", callback_data='оffer_price')]
+        [InlineKeyboardButton("Предложить цену", callback_data='offer_price')]
         # TODO exclametion
     ])
 

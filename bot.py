@@ -38,13 +38,14 @@ async def start_chat(message, state: FSMContext):
 ############################################################################
 ###USER PART###############################################################
 ############################################################################
+
+
 @dp.message_handler(content_types=['text'], state=st.UserStates.user_start_state)
 async def first_user_page_message(message, state: FSMContext):
     """User choose bot abilities"""
     if message.text == 'Заказать лабу':
         await st.UserStates.user_choose_language_state.set()
-        await message.answer(f"Выберите язык программирования", reply_markup = keyboard.languages_kbd())
-
+        await message.answer(f"Выберите язык программирования", reply_markup=keyboard.languages_kbd())
 
     elif message.text == 'Помощь':
         #TODO
@@ -107,6 +108,19 @@ async def user_send_description(message, state: FSMContext):
         await message.answer("Ваш заказ сохранён и отправлен на проверку!")
 
 
+@dp.callback_query_handler(text='accept_price', state='*')
+async def accept_price(callback: types.CallbackQuery, state: FSMContext):
+    work = callback.message.text.split('\n')[0].split(' ')[-1]
+    price = callback.message.text.split(' ')[-1][:-1]
+    print(work)
+    print(price)
+    if await db.is_offer_available(work, price):
+        pass
+        #worker = await db.accept_price(work, price, bot)
+    else:
+        await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
+
+
 #########################################################################
 ###WORKER PART##########################################################
 #########################################################################
@@ -129,12 +143,12 @@ async def worker_first_message(message, state: FSMContext):
         await message.answer("Извините, но я вас не понимаю!", reply_markup=keyboard.user_start_kbd())
 
 
-@dp.callback_query_handler(text='offer_price')
+@dp.callback_query_handler(text='offer_price', state='*')
 async def offer_price(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer(f"Предложите свою цену в $:")
-    with state.proxy() as data:
-        data['order'] = callback.message.caption[1:4]
     await st.UserStates.worker_price_state.set()
+    await callback.message.answer(f"Предложите свою цену в $:")
+    async with state.proxy() as data:
+        data['order'] = callback.message.caption[1:5]
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.worker_price_state)
@@ -144,12 +158,15 @@ async def send_worker_price(message, state: FSMContext):
             # TODO price check
             await message.answer("Цена слишком высокая!")
         else:
-            with state.proxy() as data:
+            async with state.proxy() as data:
                 user = await db.get_user_id(data['order'])
-                await bot.send_message(user, f"На ваш заказ №{data['order']} пришло предложение цены: {message.text}$",
-                                       reply_markup=keyboard.user_accept_price_ikb())
+                print(message.chat.id)
                 await db.save_offer(data['order'], message.chat.id, int(message.text))
+                await bot.send_message(user, f"На ваш заказ № {data['order']}\nПришло предложение цены: {message.text}$",
+                                       reply_markup=keyboard.user_accept_price_ikb())
                 await message.answer("Ваше предложение было отправлено")
+
+
 ########################################################################
 ###MY PART#############################################################
 ########################################################################
@@ -157,8 +174,6 @@ async def send_worker_price(message, state: FSMContext):
 
 @dp.callback_query_handler(text='accept_order')
 async def accept_order(callback: types.CallbackQuery, state: FSMContext):
-    print(callback.message)
-
     await db.accept_order(int(callback.message.caption.split('\n')[0]), bot)
 
 

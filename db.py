@@ -171,7 +171,7 @@ async def get_user_id(order) -> int:
         try:
             with connection.cursor() as cur:
                 cur.execute(f"SELECT user_id FROM order_list WHERE order_id='{order}';")
-                return cur.fetchone()
+                return cur.fetchone()['user_id']
 
         finally:
             connection.close()
@@ -191,10 +191,34 @@ async def save_offer(order, worker_id, price):
             cursorclass=pymysql.cursors.DictCursor
         )
         try:
-            # TODO save_offer
             with connection.cursor() as cur:
-                cur.execute(f";")
-                return cur.fetchone()
+                cur.execute(f"INSERT INTO price_offer(order_id, worker_id, price) VALUES('{order}', '{worker_id}', '{price}');")
+                connection.commit()
+                print(1)
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def is_offer_available(work, price) -> bool:
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT * FROM price_offer WHERE order_id='{work}' AND price='{price}';")
+
+                if cur.fetchall() == ():
+                    return False
+                return True
 
         finally:
             connection.close()
@@ -202,6 +226,27 @@ async def save_offer(order, worker_id, price):
     except Exception as ex:
         print(ex)
 
+
+async def accept_price(work, price, bot):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"INSERT ;")
+                connection.commit()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
 
 
 if __name__ == '__main__':
@@ -215,8 +260,8 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            pass
-
+            cur.execute("DELETE FROM price_offer;")
+            connection.commit()
 
     except Exception as ex:
         print(ex)
