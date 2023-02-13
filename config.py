@@ -1,8 +1,13 @@
+from aiohttp import web
+
 from aiocryptopay import AioCryptoPay, Networks
+from aiocryptopay.models.update import Update
+
 from enum import Enum
 
 token = '5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE'
 
+#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://78b8-178-127-206-80.eu.ngrok.io
 
 host = '127.0.0.1'
 user = 'root'
@@ -17,6 +22,15 @@ main_account = 1208266563
 #
 crypto = AioCryptoPay(token='6615:AAqfEMEaHHvCrFRPvVnWuJ96xzvvur8Q1fq', network=Networks.TEST_NET)
 
+
+##########################################################
+
+WEBHOOK_HOST = 'https://78b8-178-127-206-80.eu.ngrok.io'
+WEBHOOK_PATH = ''
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+
+WEBAPP_HOST = 'localhost'  # or ip
+WEBAPP_PORT = 5000
 
 ##########################################################
 

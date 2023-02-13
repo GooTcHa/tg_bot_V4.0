@@ -1,56 +1,80 @@
-from aiogram import Dispatcher, Bot, types, executor
+import aiogram.types
+import flask
+from aiogram import Dispatcher, Bot, types, executor, uvloop
+import logging
+from aiogram import Bot, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.dispatcher import Dispatcher
+from aiogram.dispatcher.webhook import SendMessage
+from aiogram.utils.executor import start_webhook
+
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher import FSMContext
 
-from aiocryptopay import AioCryptoPay, Networks
+from aiohttp import web
 
+from aiocryptopay import AioCryptoPay, Networks
+from aiocryptopay.models.update import Update
+
+import asyncio
+import logging
 import keyboard
 import states
 import states as st
 import config
 import db
 
+
+# import nest_asyncio
+#
+# nest_asyncio.apply()
+
+
 storage = MemoryStorage()
 bot = Bot(token=config.token)
 dp = Dispatcher(bot, storage=storage)
+dp.middleware.setup(LoggingMiddleware())
 
 
-async def on_startup(arg):
-    """"""
-    await db.connect_db()
+async def on_startup(dp):
+    await bot.set_webhook(config.WEBHOOK_URL)
+
+
+async def on_shutdown(dp):
+    logging.warning('Shutting down..')
+
+    # insert code here to run it before shutdown
+
+    # Remove webhook (not acceptable in some cases)
+    await bot.delete_webhook()
+
+    # Close DB connection (if used)
+    await dp.storage.close()
+    await dp.storage.wait_closed()
+
+    logging.warning('Bye!')
 
 
 @dp.message_handler(commands=['start'], state='*')
 async def start_chat(message, state: FSMContext):
     """User start chat"""
-    profile = await config.crypto.get_me()
-    currencies = await config.crypto.get_currencies()
-    balance = await config.crypto.get_balance()
-    rates = await config.crypto.get_exchange_rates()
-
-    print(profile, currencies, balance, rates, sep='\n')
-
-    invoice = await config.crypto.create_invoice(asset='TON', amount=1.5)
-
-    await message.answer(invoice.pay_url)
-    print(invoice.pay_url)
-
-    invoices = await config.crypto.get_invoices(invoice_ids=invoice.invoice_id)
-    print(invoices.status)
-
-
-    if await db.ifUserIsWorker(message):
-
-        await st.UserStates.worker_start_state.set()
-        await message.answer(f"Добро пожаловать {message.from_user.first_name}!\nВам даны права разработчика.\nДля"
-                             f" начала рекомендуем ознакомиться с правилами и принципами работы бота.\n"
-                             f"Удачной работы!", reply_markup=keyboard.worker_start_kbd())
+    if message.text.split(" ").length() == 3:
+        # TO DO payments
+        await message.answer("TOoTOoDOOOOO")
     else:
+        if await db.ifUserIsWorker(message):
 
-        await st.UserStates.user_start_state.set()
-        await message.answer(f"Здаравствуйте {message.from_user.first_name}!\nВас преветствует LabaHelperBot.",
-                             reply_markup=keyboard.user_start_kbd())
+            await st.UserStates.worker_start_state.set()
+            await message.answer(f"Добро пожаловать {message.from_user.first_name}!\nВам даны права разработчика.\nДля"
+                                 f" начала рекомендуем ознакомиться с правилами и принципами работы бота.\n"
+                                 f"Удачной работы!", reply_markup=keyboard.worker_start_kbd())
+        else:
+
+            await st.UserStates.user_start_state.set()
+            await message.answer(f"Здаравствуйте {message.from_user.first_name}!\nВас преветствует LabaHelperBot.",
+                                 reply_markup=keyboard.user_start_kbd())
+
 
 ############################################################################
 ###USER PART###############################################################
@@ -128,12 +152,16 @@ async def user_send_description(message, state: FSMContext):
 @dp.callback_query_handler(text='accept_price', state='*')
 async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     work = callback.message.text.split('\n')[0].split(' ')[-1]
-    price = callback.message.text.split(' ')[-1][:-1]
-    print(work)
-    print(price)
-    if await db.is_offer_available(work, price):
-        pass
-        #worker = await db.accept_price(work, price, bot)
+    price = int(callback.message.text.split(' ')[-1][:-1])
+
+    worker = await db.is_offer_available(work, price)
+    if worker is not None:
+        invoice = await config.crypto.create_invoice(asset='TON', amount=price/1000.0,
+                                                     paid_btn_url="https://t.me/LabaHelperBot?start='hello ebat!'",
+                                                     paid_btn_name='openBot', expires_in=600)
+        await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id)
+        await callback.message.answer(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}TON")
+        await st.UserStates.successful_user_payment_state.set()
     else:
         await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
 
@@ -207,6 +235,14 @@ async def ban_user(callback: types.CallbackQuery, state: FSMContext):
 
 
 if __name__ == '__main__':
-    executor.start_polling(dp,
-                           skip_updates=True,
-                           on_startup=on_startup)
+    start_webhook(
+        dispatcher=dp,
+        webhook_path=config.WEBHOOK_PATH,
+        on_startup=on_startup,
+        on_shutdown=on_shutdown,
+        skip_updates=True,
+        host=config.WEBAPP_HOST,
+        port=config.WEBAPP_PORT,
+    )
+
+
