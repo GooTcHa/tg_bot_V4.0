@@ -215,32 +215,9 @@ async def is_offer_available(work, price) -> bool:
         try:
             with connection.cursor() as cur:
                 cur.execute(f"SELECT worker_id FROM price_offer WHERE order_id='{work}' AND price='{price}';")
-
-                if cur.fetchall() == ():
-                    return None
-                return cur.fetchone['worker_id']
-
-        finally:
-            connection.close()
-
-    except Exception as ex:
-        print(ex)
-
-
-async def accept_price(work, price, bot):
-    try:
-        connection = pymysql.connect(
-            host=host,
-            port=3306,
-            user=user,
-            password=password,
-            database=db_name,
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        try:
-            with connection.cursor() as cur:
-                cur.execute(f"UPDARW;")
-                connection.commit()
+                temp = cur.fetchone()['worker_id']
+                # print(temp)
+                return temp
 
         finally:
             connection.close()
@@ -249,30 +226,7 @@ async def accept_price(work, price, bot):
         print(ex)
 
 
-def user_choose_price(user, worker, work, invoice_id):
-    try:
-        connection = pymysql.connect(
-            host=host,
-            port=3306,
-            user=user,
-            password=password,
-            database=db_name,
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        try:
-            with connection.cursor() as cur:
-                cur.execute(f"UPDATE worker_list SET state='1' WHERE worker_id='{worker}';")
-                cur.execute(f"UPDATE order_list SET worker_id='{worker}, state='2', invoice_id='{invoice_id}' WHERE order_id='{work}';")
-                connection.commit()
-
-        finally:
-            connection.close()
-
-    except Exception as ex:
-        print(ex)
-
-
-# async def make_worker_unactive(worker, work):
+# async def accept_price(work, price, bot):
 #     try:
 #         connection = pymysql.connect(
 #             host=host,
@@ -284,8 +238,7 @@ def user_choose_price(user, worker, work, invoice_id):
 #         )
 #         try:
 #             with connection.cursor() as cur:
-#                 cur.execute(f"UPDATE worker_list SET state='1' WHERE worker_id='{worker}';")
-#                 cur.execute(f"UPDATE order_list SET worker_id='{worker}, state='2' WHERE order_id='{work}';")
+#                 cur.execute(f"UPDARW;")
 #                 connection.commit()
 #
 #         finally:
@@ -293,6 +246,80 @@ def user_choose_price(user, worker, work, invoice_id):
 #
 #     except Exception as ex:
 #         print(ex)
+
+
+async def user_choose_price(user_id, worker, work, invoice_id, price):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("DB connected!")
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"UPDATE worker_list SET worker_state='1' WHERE worker_id='{worker}';")
+                connection.commit()
+
+                cur.execute(f"UPDATE order_list SET worker_id='{worker}', price='{price}', invoice_id='{invoice_id}', state='2'"
+                            f" WHERE order_id='{work}';")
+                connection.commit()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def get_order_invoice(user_id, work_id):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT invoice_id FROM order_list WHERE order_id='{work_id}' AND user_id='{user_id}';")
+                return cur.fetchone()['invoice_id']
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def order_was_paid(order):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"UPDATE order_list SET state='3' WHERE order_id='{order}';")
+                connection.commit()
+
+                cur.execute(f"SELECT * FROM order_list WHERE order_id='{order}';")
+                return cur.fetchone()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
 
 
 if __name__ == '__main__':
@@ -306,8 +333,9 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            cur.execute("DELETE FROM price_offer;")
+            cur.execute(f"DELETE FROM price_offer;")
             connection.commit()
 
     except Exception as ex:
         print(ex)
+

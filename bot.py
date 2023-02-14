@@ -59,9 +59,18 @@ async def on_shutdown(dp):
 @dp.message_handler(commands=['start'], state='*')
 async def start_chat(message, state: FSMContext):
     """User start chat"""
-    if message.text.split(" ").length() == 3:
+    print(message.text)
+    if len(message.text.split(" ")) == 2:
         # TO DO payments
-        await message.answer("TOoTOoDOOOOO")
+        order = message.text.split(" ")[1]
+        invoice = await db.get_order_invoice(message.chat.id, order)
+        arr = await config.crypto.get_invoices(status='paid', count=20)
+        a1 = list(filter(lambda x: x.invoice_id == invoice, arr))
+        if a1 == ():
+            await message.answer(f"Вы пока что не оплатили заказ!")
+        else:
+            await message.answer("Заказ оплачен!")
+            order = await db.order_was_paid(order)
     else:
         if await db.ifUserIsWorker(message):
 
@@ -152,16 +161,17 @@ async def user_send_description(message, state: FSMContext):
 @dp.callback_query_handler(text='accept_price', state='*')
 async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     work = callback.message.text.split('\n')[0].split(' ')[-1]
-    price = int(callback.message.text.split(' ')[-1][:-1])
+    price = callback.message.text.split(' ')[-1][:-1]
 
     worker = await db.is_offer_available(work, price)
     if worker is not None:
-        invoice = await config.crypto.create_invoice(asset='TON', amount=price/1000.0,
-                                                     paid_btn_url="https://t.me/LabaHelperBot?start='hello ebat!'",
-                                                     paid_btn_name='openBot', expires_in=600)
-        await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id)
+
+        invoice = await config.crypto.create_invoice(asset='TON', amount=0.005,
+                                                     paid_btn_url=f"https://t.me/LabaHelperBot?start={work}",
+                                                     paid_btn_name="callback", expires_in=600)
+        await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id, price)
         await callback.message.answer(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}TON")
-        await st.UserStates.successful_user_payment_state.set()
+        # await st.UserStates.successful_user_payment_state.set()
     else:
         await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
 
