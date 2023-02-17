@@ -69,11 +69,13 @@ async def start_chat(message, state: FSMContext):
         if a1 == ():
             await message.answer(f"Вы пока что не оплатили заказ!")
         else:
-            await message.answer("Заказ оплачен!")
             order = await db.order_was_paid(order)
+            worker_link = await db.get_worker_link(order['worker_id'])
+            await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!")
+            await bot.send_message(order['worker_id'], f"Ваше предложение в {order['price']}TON на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!")
     else:
         if await db.ifUserIsWorker(message):
-
+            await db.update_worker_info(message)
             await st.UserStates.worker_start_state.set()
             await message.answer(f"Добро пожаловать {message.from_user.first_name}!\nВам даны права разработчика.\nДля"
                                  f" начала рекомендуем ознакомиться с правилами и принципами работы бота.\n"
@@ -85,6 +87,22 @@ async def start_chat(message, state: FSMContext):
                                  reply_markup=keyboard.user_start_kbd())
 
 
+@dp.message_handler()
+async def start_message(message, state: FSMContext):
+    # TO DO normalise
+    if await db.ifUserIsWorker(message):
+        await db.update_worker_info(message)
+        await st.UserStates.worker_start_state.set()
+        await message.answer(f"Добро пожаловать {message.from_user.first_name}!\nВам даны права разработчика.\nДля"
+                             f" начала рекомендуем ознакомиться с правилами и принципами работы бота.\n"
+                             f"Удачной работы!", reply_markup=keyboard.worker_start_kbd())
+    else:
+
+        await st.UserStates.user_start_state.set()
+        await message.answer(f"Здаравствуйте {message.from_user.first_name}!\nВас преветствует LabaHelperBot.",
+                             reply_markup=keyboard.user_start_kbd())
+
+
 ############################################################################
 ###USER PART###############################################################
 ############################################################################
@@ -94,15 +112,17 @@ async def start_chat(message, state: FSMContext):
 async def first_user_page_message(message, state: FSMContext):
     """User choose bot abilities"""
     if message.text == 'Заказать лабу':
-        await st.UserStates.user_choose_language_state.set()
-        await message.answer(f"Выберите язык программирования", reply_markup=keyboard.languages_kbd())
+        if await db.if_user_has_order(message.chat.id):
+            await st.UserStates.user_choose_language_state.set()
+            await message.answer(f"Выберите язык программирования", reply_markup=keyboard.languages_kbd())
+        else:
+            await message.answer(f"У вас уже есть активный заказ!")
 
     elif message.text == 'Помощь':
         #TODO
         pass
-    elif message.text == 'Мои заказы':
-        #TODO
-        pass
+    elif message.text == 'Mои заказы':
+        await db.get_user_order(message, bot)
     else:
         await message.answer("Извините, но я вас не понимаю!", reply_markup=keyboard.user_start_kbd())
 
@@ -166,7 +186,7 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     worker = await db.is_offer_available(work, price)
     if worker is not None:
 
-        invoice = await config.crypto.create_invoice(asset='TON', amount=0.005,
+        invoice = await config.crypto.create_invoice(asset='TON', amount=0.5,
                                                      paid_btn_url=f"https://t.me/LabaHelperBot?start={work}",
                                                      paid_btn_name="callback", expires_in=600)
         await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id, price)
@@ -174,6 +194,15 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
         # await st.UserStates.successful_user_payment_state.set()
     else:
         await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
+
+
+@dp.callback_query_handler(text='accept_solution', state='*')
+async def accept_price(callback: types.CallbackQuery, state: FSMContext):
+    try:
+        await config.crypto.transfer(user_id=5517807465, asset='TON', amount=0.5, spend_id='hgldsfkjglskjfdgghhfd')
+        await callback.message.answer(f"Заказ был отмечен как выполненый!")
+    except:
+        await callback.message.answer("Ошибка!\nПопробуйте позже!")
 
 
 #########################################################################
@@ -246,7 +275,7 @@ async def ban_user(callback: types.CallbackQuery, state: FSMContext):
 
 if __name__ == '__main__':
     start_webhook(
-        dispatcher=dp,
+        dispatcher=dp.get_updates(),
         webhook_path=config.WEBHOOK_PATH,
         on_startup=on_startup,
         on_shutdown=on_shutdown,

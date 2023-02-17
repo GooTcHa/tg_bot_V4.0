@@ -68,3 +68,12 @@ def user_accept_price_ikb() -> InlineKeyboardMarkup:
     ])
 
     return markup
+
+
+def user_work_3_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Заказ выполнен!", callback_data='accept_solution')]
+        # TODO exclametion
+    ])
+
+    return markup

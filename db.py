@@ -308,13 +308,142 @@ async def order_was_paid(order):
             cursorclass=pymysql.cursors.DictCursor
         )
         try:
+            date = datetime.date.today()
+            day = datetime.timedelta(days=7)
+            date = date + day
             with connection.cursor() as cur:
-                cur.execute(f"UPDATE order_list SET state='3' WHERE order_id='{order}';")
+                cur.execute(f"UPDATE order_list SET deadline='{date}', state='3' WHERE order_id='{order}';")
                 connection.commit()
 
                 cur.execute(f"SELECT * FROM order_list WHERE order_id='{order}';")
                 return cur.fetchone()
 
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def update_worker_info(message):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"UPDATE worker_list SET worker_link='@{message.from_user.username}' WHERE worker_id='{message.chat.id}';")
+                connection.commit()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def get_worker_link(worker):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT worker_link FROM worker_list WHERE worker_id='{worker}';")
+                link = cur.fetchone()['worker_link']
+                print(link)
+                return link
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def get_user_order(message, bot):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT * FROM order_list WHERE user_id='{message.chat.id}';")
+                order = cur.fetchone()
+                if order == ():
+                    await message.answer(f"У вас, пока что, нет активных заказов(")
+                if order['state'] == 0:
+                    if order['doc']:
+                        await bot.send_document(message.chat.id, order['doc'],
+                                                caption=f"#{order['order_id']}\nУсловие: {order['text']}\nСтатус: Заказ находится на проверке",
+                                                reply_markup=keyboard.worker_watch_ikb())
+                    else:
+                        await bot.send_photo(message.chat.id, order['photo'], caption=f"#{order['order_id']}\nУсловие: {order['text']}\nСтатус: Заказ находится на проверке",
+                                             reply_markup=keyboard.worker_watch_ikb())
+                elif order['state'] == 1:
+                    if order['doc']:
+                        await bot.send_document(message.chat.id, order['doc'],
+                                                caption=f"#{order['order_id']}\nУсловие: {order['text']}\nСтатус: Заказ одобрен и доступен для исполнителей",
+                                                reply_markup=keyboard.worker_watch_ikb())
+                    else:
+                        await bot.send_photo(message.chat.id, order['photo'], caption=f"#{order['order_id']}\nУсловие: {order['text']}\nСтатус: Заказ одобрен и доступен для исполнителей",
+                                             reply_markup=keyboard.worker_watch_ikb())
+                elif order['state'] == 2:
+                    if order['doc']:
+                        await bot.send_document(message.chat.id, order['doc'],
+                                                caption=f"#{order['order_id']}\nУсловие: {order['text']}\nСтатус: Заказ находится на стадии ожидания оплаты",
+                                                reply_markup=keyboard.worker_watch_ikb())
+                    else:
+                        await bot.send_photo(message.chat.id, order['photo'], caption=f"#{order['order_id']}\nУсловие: {order['text']}\nСтатус: Заказ находится на стадии ожидания оплаты",
+                                             reply_markup=keyboard.worker_watch_ikb())
+                elif order['state'] == 3:
+                    if order['doc']:
+                        await bot.send_document(message.chat.id, order['doc'],
+                                                caption=f"#{order['order_id']}\nУсловие: {order['text']}\nИсполнитель: {await get_worker_link(order['worker_id'])}\nДедлайн: {order['deadline']}",
+                                                reply_markup=keyboard.user_work_3_ikb())
+                    else:
+                        await bot.send_photo(message.chat.id, order['photo'], caption=f"#{order['order_id']}\nУсловие: {order['text']}\nИсполнитель: {await get_worker_link(order['worker_id'])}\nДедлайн: {order['deadline']}",
+                                             reply_markup=keyboard.user_work_3_ikb())
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def if_user_has_order(user_id):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT * FROM order_list WHERE user_id='{user_id}';")
+                order = cur.fetchone()
+                print(order)
+                if order is not None:
+                    return False
+                return True
         finally:
             connection.close()
 
@@ -333,9 +462,8 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            cur.execute(f"DELETE FROM price_offer;")
+            cur.execute(f"DELETE FROM order_list;")
             connection.commit()
 
     except Exception as ex:
         print(ex)
-
