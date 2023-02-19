@@ -55,7 +55,6 @@ def accept_order_ikb() -> InlineKeyboardMarkup:
 def worker_watch_ikb() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton("Предложить цену", callback_data='offer_price')]
-        # TODO exclametion
     ])
 
     return markup
@@ -70,10 +69,37 @@ def user_accept_price_ikb() -> InlineKeyboardMarkup:
     return markup
 
 
+def user_work_02_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Удалить заказ", callback_data='delete_order')]
+    ])
+
+    return markup
+
+
+def user_work_1_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Проверить предложения", callback_data='check_price')],
+        [InlineKeyboardButton("Удалить заказ", callback_data='delete_order')]
+    ])
+
+    return markup
+
 def user_work_3_ikb() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')],
+        [InlineKeyboardButton("Проверить дедлайн", callback_data='check_deadline')],
         [InlineKeyboardButton("Заказ выполнен!", callback_data='accept_solution')]
         # TODO exclametion
+    ])
+
+    return markup
+
+
+def worker_work_ikb() ->InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')]
+
     ])
 
     return markup

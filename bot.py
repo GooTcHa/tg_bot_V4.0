@@ -1,34 +1,18 @@
-import aiogram.types
-import flask
-from aiogram import Dispatcher, Bot, types, executor, uvloop
-import logging
 from aiogram import Bot, types
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import Dispatcher
-from aiogram.dispatcher.webhook import SendMessage
 from aiogram.utils.executor import start_webhook
 
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher import FSMContext
 
-from aiohttp import web
+import uuid
 
-from aiocryptopay import AioCryptoPay, Networks
-from aiocryptopay.models.update import Update
-
-import asyncio
 import logging
 import keyboard
-import states
 import states as st
 import config
 import db
-
-
-# import nest_asyncio
-#
-# nest_asyncio.apply()
 
 
 storage = MemoryStorage()
@@ -59,7 +43,6 @@ async def on_shutdown(dp):
 @dp.message_handler(commands=['start'], state='*')
 async def start_chat(message, state: FSMContext):
     """User start chat"""
-    print(message.text)
     if len(message.text.split(" ")) == 2:
         # TO DO payments
         order = message.text.split(" ")[1]
@@ -81,15 +64,15 @@ async def start_chat(message, state: FSMContext):
                                  f" начала рекомендуем ознакомиться с правилами и принципами работы бота.\n"
                                  f"Удачной работы!", reply_markup=keyboard.worker_start_kbd())
         else:
-
+            await db.update_user_info(message)
             await st.UserStates.user_start_state.set()
-            await message.answer(f"Здаравствуйте {message.from_user.first_name}!\nВас преветствует LabaHelperBot.",
+            await message.answer(f"Здаравствуйте {message.from_user.first_name}!\nВас приветствует LabaHelperBot.",
                                  reply_markup=keyboard.user_start_kbd())
 
 
 @dp.message_handler()
 async def start_message(message, state: FSMContext):
-    # TO DO normalise
+    # TODO normalise
     if await db.ifUserIsWorker(message):
         await db.update_worker_info(message)
         await st.UserStates.worker_start_state.set()
@@ -104,7 +87,7 @@ async def start_message(message, state: FSMContext):
 
 
 ############################################################################
-###USER PART###############################################################
+###USER PART################################################################
 ############################################################################
 
 
@@ -170,12 +153,13 @@ async def user_send_description(message, state: FSMContext):
         data['descr'] = message.text
         await db.saveUserOrder(message, data)
         if data['doc']:
-            await bot.send_document(config.main_account, data['doc'], caption=f"{message.chat.id}\n{data}",
-                                    reply_markup=keyboard.accept_order_ikb(), caption_entities=f"{message.chat.id}")
+            await bot.send_document(config.main_account, data['doc'], caption=f"{data['order']}\nОписание: {message.text}",
+                                    reply_markup=keyboard.accept_order_ikb())
         else:
-            await bot.send_photo(config.main_account, data['photo'], f"{message.chat.id}\n{data}",
-                                 reply_markup=keyboard.accept_order_ikb(), caption_entities=f"{message.chat.id}")
-        await message.answer("Ваш заказ сохранён и отправлен на проверку!")
+            await bot.send_photo(config.main_account, data['photo'], caption=f"{data['order']}\nОписание: {message.text}",
+                                 reply_markup=keyboard.accept_order_ikb())
+        await st.UserStates.user_start_state.set()
+        await message.answer(f"Ваш заказ №{data['order']} сохранён и отправлен на проверку!", reply_markup=keyboard.user_start_kbd())
 
 
 @dp.callback_query_handler(text='accept_price', state='*')
@@ -186,11 +170,11 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     worker = await db.is_offer_available(work, price)
     if worker is not None:
 
-        invoice = await config.crypto.create_invoice(asset='TON', amount=0.5,
+        invoice = await config.crypto.create_invoice(asset='USDT', amount=price,
                                                      paid_btn_url=f"https://t.me/LabaHelperBot?start={work}",
-                                                     paid_btn_name="callback", expires_in=600)
+                                                     paid_btn_name="callback", expires_in=1800)
         await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id, price)
-        await callback.message.answer(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}TON")
+        await callback.message.answer(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}USDT\nУ вас 30 минут на оплату")
         # await st.UserStates.successful_user_payment_state.set()
     else:
         await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
@@ -199,10 +183,28 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query_handler(text='accept_solution', state='*')
 async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     try:
-        await config.crypto.transfer(user_id=5517807465, asset='TON', amount=0.5, spend_id='hgldsfkjglskjfdgghhfd')
+        print(callback.message.caption.split('\n')[0][1:])
+        order = await db.get_order_by_key(callback.message.caption.split('\n')[0][1:])
+        b = True
+        while b:
+            try:
+                await config.crypto.transfer(user_id=order['worker_id'], asset='USDT', amount=order['price'], spend_id=f"{uuid.uuid4()}")
+                b = False
+            except Exception as ex:
+                print(ex)
+                b = True
+        await db.save_history(order)
         await callback.message.answer(f"Заказ был отмечен как выполненый!")
-    except:
+    except Exception as ex:
+        print(ex)
         await callback.message.answer("Ошибка!\nПопробуйте позже!")
+
+
+@dp.callback_query_handler(text='delete_order', state='*')
+async def accept_order(callback: types.CallbackQuery, state: FSMContext):
+    order = await db.delete_order(callback.message.caption.split('\n')[0][1:])
+    await callback.message.answer(f"Ваш заказ №{order['order_id']} был успешно удалён!")
+    await callback.message.delete()
 
 
 #########################################################################
@@ -221,8 +223,7 @@ async def worker_first_message(message, state: FSMContext):
         #TODO create help menu
         pass
     elif message.text == 'Mои работы':
-        #TODO create work list
-        pass
+        await db.get_worker_order(bot, message)
     else:
         await message.answer("Извините, но я вас не понимаю!", reply_markup=keyboard.user_start_kbd())
 
@@ -239,7 +240,6 @@ async def offer_price(callback: types.CallbackQuery, state: FSMContext):
 async def send_worker_price(message, state: FSMContext):
     if message.text.isdigit():
         if 5 > int(message.text) > 200:
-            # TODO price check
             await message.answer("Цена слишком высокая!")
         else:
             async with state.proxy() as data:
@@ -256,18 +256,19 @@ async def send_worker_price(message, state: FSMContext):
 ########################################################################
 
 
-@dp.callback_query_handler(text='accept_order')
+@dp.callback_query_handler(text='accept_order', state='*')
 async def accept_order(callback: types.CallbackQuery, state: FSMContext):
     await db.accept_order(int(callback.message.caption.split('\n')[0]), bot)
+    await callback.message.delete()
 
 
-@dp.callback_query_handler(text='decline_order')
+@dp.callback_query_handler(text='decline_order', state='*')
 async def decline_order(callback: types.CallbackQuery, state: FSMContext):
     pass
     #TODO
 
 
-@dp.callback_query_handler(text='ban_user')
+@dp.callback_query_handler(text='ban_user', state='*')
 async def ban_user(callback: types.CallbackQuery, state: FSMContext):
     pass
     #TODO
@@ -275,7 +276,7 @@ async def ban_user(callback: types.CallbackQuery, state: FSMContext):
 
 if __name__ == '__main__':
     start_webhook(
-        dispatcher=dp.get_updates(),
+        dispatcher=dp,
         webhook_path=config.WEBHOOK_PATH,
         on_startup=on_startup,
         on_shutdown=on_shutdown,

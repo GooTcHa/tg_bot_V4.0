@@ -7,7 +7,8 @@ from enum import Enum
 
 token = '5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE'
 
-#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://9a09-178-127-206-80.eu.ngrok.io
+#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://1e4e-46-216-144-88.eu.ngrok.io
+
 
 host = '127.0.0.1'
 user = 'root'
@@ -15,7 +16,7 @@ password = 'gotcha'
 db_name = 'db'
 
 
-languages = {'C++' , 'Java', 'ASSEMBLER'}
+languages = {'C++', 'Java', 'ASSEMBLER'}
 
 main_account = 1208266563
 
@@ -25,7 +26,7 @@ crypto = AioCryptoPay(token='6615:AAqfEMEaHHvCrFRPvVnWuJ96xzvvur8Q1fq', network=
 
 ##########################################################
 
-WEBHOOK_HOST = 'https://9a09-178-127-206-80.eu.ngrok.io'
+WEBHOOK_HOST = 'https://1e4e-46-216-144-88.eu.ngrok.io'
 WEBHOOK_PATH = ''
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
