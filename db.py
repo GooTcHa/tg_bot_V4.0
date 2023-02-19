@@ -563,13 +563,33 @@ async def save_history(order):
         )
         try:
             with connection.cursor() as cur:
-                print(order, sep='\n')
                 cur.execute(f"INSERT INTO order_history(order_id, user_id, worker_id, language, photo, doc, text, price)"
                             f" VALUES('{order['order_id']}', '{order['user_id']}', '{order['worker_id']}', "
                             f"'{order['language']}', '{order['photo']}', '{order['doc']}', '{order['text']}', "
                             f"'{order['price']}');")
                 connection.commit()
                 cur.execute(f"DELETE FROM order_list WHERE order_id='{order['order_id']}';")
+                connection.commit()
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def delete_offer(order_id, worker_id):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"DELETE FROM price_offer WHERE order_id='{order_id}' AND worker_id='{worker_id}';")
                 connection.commit()
         finally:
             connection.close()
@@ -589,7 +609,7 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            cur.execute(f"DELETE FROM order_history;")
+            cur.execute(f"DELETE FROM price_offer;")
             connection.commit()
 
     except Exception as ex:

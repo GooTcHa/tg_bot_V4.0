@@ -44,7 +44,6 @@ async def on_shutdown(dp):
 async def start_chat(message, state: FSMContext):
     """User start chat"""
     if len(message.text.split(" ")) == 2:
-        # TO DO payments
         order = message.text.split(" ")[1]
         invoice = await db.get_order_invoice(message.chat.id, order)
         arr = await config.crypto.get_invoices(status='paid', count=20)
@@ -54,7 +53,8 @@ async def start_chat(message, state: FSMContext):
         else:
             order = await db.order_was_paid(order)
             worker_link = await db.get_worker_link(order['worker_id'])
-            await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!")
+            await db.delete_offer(order['order_id'], order['worker_id'])
+            await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!", reply_markup=keyboard.user_start_kbd())
             await bot.send_message(order['worker_id'], f"Ваше предложение в {order['price']}TON на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!")
     else:
         if await db.ifUserIsWorker(message):
@@ -86,6 +86,13 @@ async def start_message(message, state: FSMContext):
                              reply_markup=keyboard.user_start_kbd())
 
 
+@dp.callback_query_handler(text='send_exclamation', state='*')
+async def send_exclamation(callback: types.CallbackQuery, state: FSMContext):
+    #TODO
+    await callback.message.answer("Эта функция нахоится на этапе разработки!")
+    await callback.message.delete()
+
+
 ############################################################################
 ###USER PART################################################################
 ############################################################################
@@ -102,8 +109,7 @@ async def first_user_page_message(message, state: FSMContext):
             await message.answer(f"У вас уже есть активный заказ!")
 
     elif message.text == 'Помощь':
-        #TODO
-        pass
+        await message.answer("Этот раздел откроется в ближайшем будующем(")
     elif message.text == 'Mои заказы':
         await db.get_user_order(message, bot)
     else:
@@ -178,6 +184,7 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
         # await st.UserStates.successful_user_payment_state.set()
     else:
         await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
+    await callback.message.delete()
 
 
 @dp.callback_query_handler(text='accept_solution', state='*')
@@ -193,8 +200,14 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
             except Exception as ex:
                 print(ex)
                 b = True
+        print(1)
         await db.save_history(order)
+        await bot.send_message(order['worker_id'], f"Заказчик отметил, что заказ №{order['order_id']} был выполнен\n"
+                                                  f"На ваш счёт было зачислено {order['price']} USDT\n"
+                                                  f"Спасибо за сотрудничество!")
+        await callback.message.delete()
         await callback.message.answer(f"Заказ был отмечен как выполненый!")
+
     except Exception as ex:
         print(ex)
         await callback.message.answer("Ошибка!\nПопробуйте позже!")
@@ -205,6 +218,18 @@ async def accept_order(callback: types.CallbackQuery, state: FSMContext):
     order = await db.delete_order(callback.message.caption.split('\n')[0][1:])
     await callback.message.answer(f"Ваш заказ №{order['order_id']} был успешно удалён!")
     await callback.message.delete()
+
+
+@dp.callback_query_handler(text='check_offers', state='*')
+async def user_check_offers(callback: types.CallbackQuery, state: FSMContext):
+    #TODO
+    await callback.message.answer("Эта функция нахоится на этапе разработки!")
+
+
+@dp.callback_query_handler(text='check_deadline', state='*')
+async def user_check_deadline(callback: types.CallbackQuery, state: FSMContext):
+    #TODO
+    await callback.message.answer("Эта функция нахоится на этапе разработки!")
 
 
 #########################################################################
@@ -220,8 +245,7 @@ async def worker_first_message(message, state: FSMContext):
         await db.printFreeOrders(message, bot)
 
     elif message.text == 'Помощь':
-        #TODO create help menu
-        pass
+        await message.answer("Этот раздел откроется в ближайшем будующем(")
     elif message.text == 'Mои работы':
         await db.get_worker_order(bot, message)
     else:
@@ -234,21 +258,40 @@ async def offer_price(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(f"Предложите свою цену в $:")
     async with state.proxy() as data:
         data['order'] = callback.message.caption[1:5]
+    await callback.message.delete()
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.worker_price_state)
 async def send_worker_price(message, state: FSMContext):
-    if message.text.isdigit():
-        if 5 > int(message.text) > 200:
-            await message.answer("Цена слишком высокая!")
+    arr = message.text.split('.')
+    b = True
+    if len(arr) == 1:
+        if not message.text.isdigit:
+            b = False
+    elif len(arr) == 2:
+        try:
+            num = float(message.text)
+        except:
+            b = False
+    else:
+        b = False
+
+    if b:
+        num = round(float(message.text), 3)
+        if num < 2:
+            await message.answer("Сумма слишком маленькая!\nМинимальное предложение - 2$")
+        elif num > 200:
+            await message.answer("Сумма слишком большая!\nМакцимально возможное предложение - 200$")
         else:
             async with state.proxy() as data:
                 user = await db.get_user_id(data['order'])
-                print(message.chat.id)
-                await db.save_offer(data['order'], message.chat.id, int(message.text))
-                await bot.send_message(user, f"На ваш заказ № {data['order']}\nПришло предложение цены: {message.text}$",
+                await db.save_offer(data['order'], message.chat.id, num)
+                await bot.send_message(user, f"На ваш заказ № {data['order']}\nПришло предложение цены: {num}$",
                                        reply_markup=keyboard.user_accept_price_ikb())
-                await message.answer("Ваше предложение было отправлено")
+                await message.answer(f"Ваше предложение в {num}$ было отправлено", reply_markup=keyboard.worker_start_kbd())
+                await state.finish()
+    else:
+        await message.answer("Неподходящий формат записи!\nПопробуйте ещё раз")
 
 
 ########################################################################
@@ -264,15 +307,25 @@ async def accept_order(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query_handler(text='decline_order', state='*')
 async def decline_order(callback: types.CallbackQuery, state: FSMContext):
-    pass
-    #TODO
+    await st.UserStates.admin_decline_order_state.set()
+    async with state.proxy() as data:
+        data['order'] = callback.message.caption.split('\n')[0]
+        await callback.message.answer("Укажите причину отказа:")
+
+
+@dp.message_handler(content_types=['text'], state=st.UserStates.admin_decline_order_state)
+async def admin_decline_order(message, state: FSMContext):
+    async with state.proxy() as data:
+        user = await db.get_user_id(data['order'])
+        await db.delete_order(data['order'])
+        await bot.send_message(user, f"Ваш заказ №{data['order']} был отклонён по причине:\n{message.text}")
+        await state.finish()
 
 
 @dp.callback_query_handler(text='ban_user', state='*')
 async def ban_user(callback: types.CallbackQuery, state: FSMContext):
-    pass
-    #TODO
-
+    # TODO
+    await callback.message.answer("Этот раздел находится в разработке")
 
 if __name__ == '__main__':
     start_webhook(

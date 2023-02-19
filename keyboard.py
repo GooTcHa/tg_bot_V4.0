@@ -79,7 +79,7 @@ def user_work_02_ikb() -> InlineKeyboardMarkup:
 
 def user_work_1_ikb() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("Проверить предложения", callback_data='check_price')],
+        [InlineKeyboardButton("Проверить предложения", callback_data='check_offers')],
         [InlineKeyboardButton("Удалить заказ", callback_data='delete_order')]
     ])
 
