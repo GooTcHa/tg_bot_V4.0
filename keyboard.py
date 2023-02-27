@@ -2,20 +2,21 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
     InlineKeyboardButton
 
 
-def user_start_kbd() -> ReplyKeyboardMarkup:
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("Заказать лабу"),
-               KeyboardButton("Помощь"),
-               KeyboardButton("Mои заказы"))
-
+def user_start_ikb() -> ReplyKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Заказать лабу", callback_data='create_order')],
+        [InlineKeyboardButton("Помощь", callback_data='help')],
+        [InlineKeyboardButton("Мои заказы", callback_data='user_orders')]
+    ])
     return markup
 
 
-def worker_start_kbd() -> ReplyKeyboardMarkup:
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("Получить список заказов"),
-               KeyboardButton("Помощь"),
-               KeyboardButton("Mои работы"))
+def worker_start_ikb() -> ReplyKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Список заказов", callback_data='free_orders')],
+        [InlineKeyboardButton("Помощь", callback_data='help')],
+        [InlineKeyboardButton("Мои работы", callback_data='worker_orders')]
+    ])
 
     return markup
 
@@ -25,6 +26,14 @@ def languages_kbd() -> ReplyKeyboardMarkup:
     markup.add(KeyboardButton("C++"),
                KeyboardButton("Java"),
                KeyboardButton("ASSEMBLER"))
+
+    return markup
+
+
+def bool_kbd() -> ReplyKeyboardMarkup:
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(KeyboardButton("Да"),
+               KeyboardButton("Нет"))
 
     return markup
 
@@ -42,11 +51,16 @@ def clear_kbd() -> ReplyKeyboardMarkup:
     return markup
 
 
+def clear_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup()
+
+    return markup
+
+
 def accept_order_ikb() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton("Принять", callback_data='accept_order')],
-        [InlineKeyboardButton("Отклонить", callback_data='decline_order')],
-        [InlineKeyboardButton("Заблокировать пользователя", callback_data='ban_user')]
+        [InlineKeyboardButton("Отклонить", callback_data='decline_order')]
     ])
 
     return markup
@@ -85,12 +99,10 @@ def user_work_1_ikb() -> InlineKeyboardMarkup:
 
     return markup
 
+
 def user_work_3_ikb() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')],
-        [InlineKeyboardButton("Проверить дедлайн", callback_data='check_deadline')],
-        [InlineKeyboardButton("Заказ выполнен!", callback_data='accept_solution')]
-        # TODO exclametion
+        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')]
     ])
 
     return markup
@@ -98,8 +110,27 @@ def user_work_3_ikb() -> InlineKeyboardMarkup:
 
 def worker_work_ikb() ->InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')]
+        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')],
+        [InlineKeyboardButton("Заказ выполнен", callback_data='order_executed')]
+    ])
 
+    return markup
+
+
+def user_accept_solution_ikb() ->InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Подтвердить выполнение заказа", callback_data='accept_solution')],
+        [InlineKeyboardButton("Заказ не был выполнен", callback_data='incorrect_solution')]
+    ])
+
+    return markup
+
+
+def exclamation_ikb() ->InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Прав заказчик", callback_data='user_r')],
+        [InlineKeyboardButton("Прав работник", callback_data='worker_r')],
+        [InlineKeyboardButton("Отклонить спор", callback_data='decline_excl')]
     ])
 
     return markup

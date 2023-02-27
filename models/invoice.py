@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Union, Optional
 from datetime import datetime
 
-from ..const import Assets, PaidButtons, InvoiceStatus
+from ..config import Assets, PaidButtons, InvoiceStatus
 
 
 class Invoice(BaseModel):

@@ -15,3 +15,8 @@ class UserStates(StatesGroup):
 
     """ADMIN STATES"""
     admin_decline_order_state = State()
+
+    """GENERAL STATES"""
+    exclamation_state = State()
+    pre_exclamation_state = State()
+    send_exclamation_state = State()

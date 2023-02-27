@@ -2,6 +2,8 @@ import datetime
 from random import randint
 
 import pymysql
+
+import config
 from config import host, user, password, db_name
 import keyboard
 
@@ -87,25 +89,33 @@ async def printFreeOrders(message, bot) -> None:
         )
         try:
             with connection.cursor() as cur:
-                cur.execute(f"SELECT * FROM order_list WHERE state='1'")
-                arr = cur.fetchall()
-                date = datetime.date.today()
-                day = datetime.timedelta(days=2)
-                if arr != ():
-                    for i in arr:
-                        if i['deadline'] < date - day:
-                            order = await delete_order(i['order_id'])
-                            await bot.send_message(order['user_id'], f"Ваш заказ №{order['order_id']} был удалён в связи с окончанием срока давности!")
-                        elif i['doc']:
-                            await bot.send_document(message.chat.id, i['doc'],
-                                                    caption=f"#{i['order_id']}\nУсловие: {i['text']}",
-                                                    reply_markup=keyboard.worker_watch_ikb())
-                        else:
-                            await bot.send_photo(message.chat.id, i['photo'],
-                                                 caption=f"#{i['order_id']}\nУсловие: {i['text']}",
-                                                 reply_markup=keyboard.worker_watch_ikb())
+                cur.execute(f"SELECT order_id FROM order_list WHERE worker_id='{message.chat.id}';")
+                a = cur.fetchall()
+                if len(a) <= 4:
+                    cur.execute(f"SELECT * FROM order_list WHERE state='1'")
+                    arr = cur.fetchall()
+                    date = datetime.date.today()
+                    day = datetime.timedelta(days=2)
+                    if arr != ():
+                        for i in arr:
+                            if i['deadline'] < date - day:
+                                order = await delete_order(i['order_id'])
+                                await bot.send_message(order['user_id'],
+                                                       f"Ваш заказ №{order['order_id']} был удалён в связи с окончанием срока давности!")
+                            elif i['doc']:
+                                await bot.send_document(message.chat.id, i['doc'],
+                                                        caption=f"#{i['order_id']}\nЯзык: {i['language']}\n"
+                                                                f"Условие: {i['text']}",
+                                                        reply_markup=keyboard.worker_watch_ikb())
+                            else:
+                                await bot.send_photo(message.chat.id, i['photo'],
+                                                     caption=f"#{i['order_id']}\nЯзык: {i['language']}\n"
+                                                             f"Условие: {i['text']}",
+                                                     reply_markup=keyboard.worker_watch_ikb())
+                    else:
+                        await message.answer("Свободных заказов нет☹")
                 else:
-                    await message.answer("Свободных заказов нет☹", reply_markup=keyboard.worker_start_kbd())
+                    await message.answer("У вас уже есть 4 активные работы, закончите их перед тем как брать новые!")
         finally:
             connection.close()
 
@@ -200,7 +210,8 @@ async def save_offer(order, worker_id, price):
         try:
             with connection.cursor() as cur:
                 cur.execute(
-                    f"INSERT INTO price_offer(order_id, worker_id, price) VALUES('{order}', '{worker_id}', '{price}');")
+                    f"INSERT INTO price_offer(order_id, worker_id, price, my_price) VALUES('{order}', '{worker_id}', "
+                    f"'{price}', '{price+config.cf}');")
                 connection.commit()
                 print(1)
         finally:
@@ -222,7 +233,7 @@ async def is_offer_available(work, price) -> bool:
         )
         try:
             with connection.cursor() as cur:
-                cur.execute(f"SELECT worker_id FROM price_offer WHERE order_id='{work}' AND price='{price}';")
+                cur.execute(f"SELECT worker_id FROM price_offer WHERE order_id='{work}' AND my_price='{price}';")
                 temp = cur.fetchone()['worker_id']
                 # print(temp)
                 return temp
@@ -244,14 +255,13 @@ async def user_choose_price(user_id, worker, work, invoice_id, price):
             database=db_name,
             cursorclass=pymysql.cursors.DictCursor
         )
-        print("DB connected!")
         try:
             with connection.cursor() as cur:
-                cur.execute(f"UPDATE worker_list SET worker_state='1' WHERE worker_id='{worker}';")
-                connection.commit()
-
+                cur.execute(f"SELECT * FROM price_offer WHERE worker_id='{worker}' AND my_price='{price}';")
+                offer = cur.fetchone()
                 cur.execute(
-                    f"UPDATE order_list SET worker_id='{worker}', price='{price}', invoice_id='{invoice_id}', state='2'"
+                    f"UPDATE order_list SET worker_id='{worker}', price='{offer['price']}', my_price='{price}',"
+                    f" invoice_id='{invoice_id}', state='2'"
                     f" WHERE order_id='{work}';")
                 connection.commit()
 
@@ -350,7 +360,8 @@ async def update_user_info(message):
                 cur.execute(f"SELECT * FROM user_list WHERE user_id='{message.chat.id}';")
                 result = cur.fetchone()
                 if result is None:
-                    cur.execute(f"INSERT INTO user_list(user_id, user_link) VALUES ('{message.chat.id}', '@{message.from_user.username}');")
+                    cur.execute(
+                        f"INSERT INTO user_list(user_id, user_link) VALUES ('{message.chat.id}', '@{message.from_user.username}');")
                     connection.commit()
                 else:
                     cur.execute(
@@ -465,6 +476,13 @@ async def get_user_order(message, bot):
                                 await bot.send_photo(message.chat.id, order['photo'],
                                                      caption=f"#{order['order_id']}\nУсловие: {order['text']}\nИсполнитель: {await get_worker_link(order['worker_id'])}\nДедлайн: {order['deadline']}",
                                                      reply_markup=keyboard.user_work_3_ikb())
+                        elif order['state'] == 4:
+                            if order['doc']:
+                                await bot.send_document(message.chat.id, order['doc'],
+                                                        caption=f"#{order['order_id']}\nУсловие: {order['text']}\nИсполнитель: {await get_worker_link(order['worker_id'])}\nЗаказ находится в споре")
+                            else:
+                                await bot.send_photo(message.chat.id, order['photo'],
+                                                     caption=f"#{order['order_id']}\nУсловие: {order['text']}\nИсполнитель: {await get_worker_link(order['worker_id'])}\nЗаказ находиться в споре")
         finally:
             connection.close()
 
@@ -484,7 +502,7 @@ async def if_user_has_order(user_id):
         )
         try:
             with connection.cursor() as cur:
-                cur.execute(f"SELECT * FROM order_list WHERE user_id='{user_id}';")
+                cur.execute(f"SELECT * FROM order_list WHERE user_id='{user_id}' AND state='1';")
                 order = cur.fetchone()
                 if order is not None:
                     return False
@@ -514,14 +532,22 @@ async def get_worker_order(bot, message):
                     await message.answer("У вас пока нет активных заказов")
                 else:
                     for order in orders:
-                        if order['doc']:
-                            await bot.send_document(message.chat.id, order['doc'],
-                                                    caption=f"#{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nДедлайн: {order['deadline']}",
-                                                    reply_markup=keyboard.worker_work_ikb())
+                        if order['state'] == 3:
+                            if order['doc']:
+                                await bot.send_document(message.chat.id, order['doc'],
+                                                        caption=f"#{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nДедлайн: {order['deadline']}",
+                                                        reply_markup=keyboard.worker_work_ikb())
+                            else:
+                                await bot.send_photo(message.chat.id, order['photo'],
+                                                     caption=f"#{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nДедлайн: {order['deadline']}",
+                                                     reply_markup=keyboard.worker_work_ikb())
                         else:
-                            await bot.send_photo(message.chat.id, order['photo'],
-                                                 caption=f"#{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nДедлайн: {order['deadline']}",
-                                                 reply_markup=keyboard.worker_work_ikb())
+                            if order['doc']:
+                                await bot.send_document(message.chat.id, order['doc'],
+                                                        caption=f"#{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nЗаказ находится в споре")
+                            else:
+                                await bot.send_photo(message.chat.id, order['photo'],
+                                                     caption=f"#{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nЗаказ находиться в споре")
         finally:
             connection.close()
 
@@ -563,10 +589,11 @@ async def save_history(order):
         )
         try:
             with connection.cursor() as cur:
-                cur.execute(f"INSERT INTO order_history(order_id, user_id, worker_id, language, photo, doc, text, price)"
-                            f" VALUES('{order['order_id']}', '{order['user_id']}', '{order['worker_id']}', "
-                            f"'{order['language']}', '{order['photo']}', '{order['doc']}', '{order['text']}', "
-                            f"'{order['price']}');")
+                cur.execute(
+                    f"INSERT INTO order_history(order_id, user_id, worker_id, language, photo, doc, text, price)"
+                    f" VALUES('{order['order_id']}', '{order['user_id']}', '{order['worker_id']}', "
+                    f"'{order['language']}', '{order['photo']}', '{order['doc']}', '{order['text']}', "
+                    f"'{order['price']}');")
                 connection.commit()
                 cur.execute(f"DELETE FROM order_list WHERE order_id='{order['order_id']}';")
                 connection.commit()
@@ -598,6 +625,57 @@ async def delete_offer(order_id, worker_id):
         print(ex)
 
 
+async def get_price_offers(order_id, message):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT my_price FROM price_offer WHERE order_id='{order_id}';")
+                a = cur.fetchall()
+                arr = set()
+                for i in a:
+                    arr.add(i['my_price'])
+                if arr == set():
+                    await message.answer(f"На эту работу пока нет предложений😞")
+                else:
+                    await message.answer(f"Предложения на заказ №{order_id}:")
+                    for i in arr:
+                        await message.answer(f"Заказ № {order_id}\nЦена предложения: {i}$", reply_markup=keyboard.user_accept_price_ikb())
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
+
+async def set_order_state(order_id, state):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"UPDATE order_list SET state='{state}' WHERE order_id='{order_id}';")
+                connection.commit()
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print(ex)
+
 if __name__ == '__main__':
     try:
         connection = pymysql.connect(
@@ -609,10 +687,8 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            cur.execute(f"DELETE FROM price_offer;")
+            cur.execute(f"DELETE FROM order_list;")
             connection.commit()
 
     except Exception as ex:
         print(ex)
-
-

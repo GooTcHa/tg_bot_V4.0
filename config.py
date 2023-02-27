@@ -1,5 +1,3 @@
-from aiohttp import web
-
 from aiocryptopay import AioCryptoPay, Networks
 from aiocryptopay.models.update import Update
 
@@ -7,10 +5,11 @@ from enum import Enum
 
 token = '5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE'
 
-#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://d6dd-46-216-120-51.eu.ngrok.io
+#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://81.200.157.100/
 
+cf = 1.5
 
-host = '127.0.0.1'
+host = 'localhost'
 user = 'root'
 password = 'gotcha'
 db_name = 'db'
@@ -19,6 +18,7 @@ db_name = 'db'
 languages = {'C++', 'Java', 'ASSEMBLER'}
 
 main_account = 1208266563
+support_account = 5517807465
 
 #
 crypto = AioCryptoPay(token='6615:AAqfEMEaHHvCrFRPvVnWuJ96xzvvur8Q1fq', network=Networks.TEST_NET)
@@ -26,12 +26,12 @@ crypto = AioCryptoPay(token='6615:AAqfEMEaHHvCrFRPvVnWuJ96xzvvur8Q1fq', network=
 
 ##########################################################
 
-WEBHOOK_HOST = 'https://d6dd-46-216-120-51.eu.ngrok.io'
+WEBHOOK_HOST = 'https://81.200.157.100'
 WEBHOOK_PATH = ''
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
-WEBAPP_HOST = 'localhost'  # or ip
-WEBAPP_PORT = 5000
+WEBAPP_HOST = '81.200.157.100'
+WEBAPP_PORT = 22
 
 ##########################################################
 
