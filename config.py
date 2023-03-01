@@ -5,6 +5,9 @@ from enum import Enum
 
 token = '5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE'
 
+how_to_pay = "BQACAgUAAxkBAAIaa2P-9jSXZh8-g2rdK4nt12Dfe2HqAAIyBwACSFH4VxKHGGvQLXBsLgQ"
+how_to_oerder = "BQACAgUAAxkBAAIalWP_DrdvMz35lPQmIoonZgXmxHfoAAJcBwACSFH4V2DXuFnPkdFlLgQ"
+
 #https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://81.200.157.100/
 
 cf = 1.5

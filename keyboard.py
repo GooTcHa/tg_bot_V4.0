@@ -21,6 +21,24 @@ def worker_start_ikb() -> ReplyKeyboardMarkup:
     return markup
 
 
+def help_ikb() -> ReplyKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Как создать заказ?", callback_data='how_to_create_order')],
+        [InlineKeyboardButton("Как оплатить заказ?", callback_data='how_to_pay_order')],
+        [InlineKeyboardButton("Обратиться в поддержку", callback_data='contact_support')]
+    ])
+
+    return markup
+
+
+def how_to_pay_ikb() -> ReplyKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Как оплатить заказ?", callback_data='how_to_pay_order')]
+    ])
+
+    return markup
+
+
 def languages_kbd() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("C++"),
@@ -120,7 +138,7 @@ def worker_work_ikb() ->InlineKeyboardMarkup:
 def user_accept_solution_ikb() ->InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton("Подтвердить выполнение заказа", callback_data='accept_solution')],
-        [InlineKeyboardButton("Заказ не был выполнен", callback_data='incorrect_solution')]
+        [InlineKeyboardButton("Отправить жалобу", callback_data='send_exclamation')]
     ])
 
     return markup
@@ -131,6 +149,14 @@ def exclamation_ikb() ->InlineKeyboardMarkup:
         [InlineKeyboardButton("Прав заказчик", callback_data='user_r')],
         [InlineKeyboardButton("Прав работник", callback_data='worker_r')],
         [InlineKeyboardButton("Отклонить спор", callback_data='decline_excl')]
+    ])
+
+    return markup
+
+
+def worker_taken_orders_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Взятые работы", callback_data='worker_orders')]
     ])
 
     return markup

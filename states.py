@@ -12,6 +12,7 @@ class UserStates(StatesGroup):
     user_send_photo_state = State()
     user_send_description_state = State()
     successful_user_payment_state = State()
+    user_enter_reject_state = State()
 
     """ADMIN STATES"""
     admin_decline_order_state = State()

@@ -18,13 +18,15 @@ import states as st
 import config
 import db
 
+
 logging.basicConfig(format=u'%(filename)+13s [ LINE:%(lineno)-4s] %(levelname)-8s [%(asctime)s] %(message)s',
                     level=logging.INFO)
+
 
 loop = asyncio.get_event_loop()
 storage = MemoryStorage()
 bot = Bot(token=config.token)
-dp = Dispatcher(bot,loop=loop, storage=storage)
+dp = Dispatcher(bot, loop=loop, storage=storage)
 # dp.middleware.setup(LoggingMiddleware())
 
 
@@ -50,25 +52,27 @@ async def on_shutdown(dp):
 
 @dp.message_handler(commands=['start'], state='*')
 async def start_chat(message, state: FSMContext):
-    print(message)
     # arr = (await config.crypto.get_exchange_rates())
     # for i in arr:
     #     print(i)
     """User start chat"""
     if len(message.text.split(" ")) == 2:
         order = message.text.split(" ")[1]
-        invoice = await db.get_order_invoice(message.chat.id, order)
-        arr = await config.crypto.get_invoices(status='paid', count=20)
-        a1 = list(filter(lambda x: x.invoice_id == invoice, arr))
-        if a1 == ():
-            await message.answer(f"Вы пока что не оплатили заказ!")
+        if await db.if_order_exists(order):
+            invoice = await db.get_order_invoice(message.chat.id, order)
+            arr = await config.crypto.get_invoices(status='paid', count=20)
+            a1 = list(filter(lambda x: x.invoice_id == invoice, arr))
+            if a1 == ():
+                await message.answer(f"Вы пока что не оплатили заказ!")
+            else:
+                order = await db.order_was_paid(order)
+                worker_link = await db.get_worker_link(order['worker_id'])
+                await db.delete_offer(order['order_id'], order['worker_id'])
+                await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!")
+                await bot.send_message(order['worker_id'], f"Ваше предложение в {order['price']}$ на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!", reply_markup=keyboard.worker_taken_orders_ikb())
+                await st.UserStates.user_start_state.set()
         else:
-            order = await db.order_was_paid(order)
-            worker_link = await db.get_worker_link(order['worker_id'])
-            await db.delete_offer(order['order_id'], order['worker_id'])
-            await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!")
-            await bot.send_message(order['worker_id'], f"Ваше предложение в {order['price']}$ на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!")
-            await st.UserStates.user_start_state.set()
+            await message.answer(f"Заказ №{order} не числится активным")
     else:
         if await db.ifUserIsWorker(message):
             await db.update_worker_info(message)
@@ -95,6 +99,7 @@ async def menu(message, state: FSMContext):
         await message.answer(f"Вас приветствует LabaHelperBot - бот для помощи в написании лобораторных работ",
                              reply_markup=keyboard.user_start_ikb())
 
+
 @dp.message_handler()
 async def start_message(message, state: FSMContext):
     if await db.ifUserIsWorker(message):
@@ -108,14 +113,44 @@ async def start_message(message, state: FSMContext):
                              reply_markup=keyboard.user_start_ikb())
 
 
+@dp.callback_query_handler(text='help', state='*')
+async def help_menu(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("Выберите раздел")
+    await callback.message.edit_reply_markup(keyboard.help_ikb())
+
+
+@dp.callback_query_handler(text='how_to_pay_order', state='*')
+async def how_to_pay(callback: types.CallbackQuery, state: FSMContext):
+    user = callback.message.chat.id
+    await callback.message.delete()
+    await bot.send_document(user, document=config.how_to_pay, caption="Инструкция по оплате")
+
+
+@dp.callback_query_handler(text='how_to_create_order', state='*')
+async def how_create_order(callback: types.CallbackQuery, state: FSMContext):
+    user = callback.message.chat.id
+    await callback.message.delete()
+    await bot.send_document(user, document=config.how_to_oerder, caption="Инструкция по созданию заказа")
+
+
+@dp.callback_query_handler(text='contact_support', state='*')
+async def contact_support(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_reply_markup(keyboard.clear_ikb())
+    await callback.message.edit_text(f"Поддержка: @LabaHelperSupport")
+
+
 @dp.callback_query_handler(text='send_exclamation', state='*')
 async def exclamation(callback: types.CallbackQuery, state: FSMContext):
-    order = await db.get_order_by_key(callback.message.caption.split('\n')[0][1:])
-    await st.UserStates.pre_exclamation_state.set()
-    async with state.proxy() as data:
-        data['order'] = order
-        await callback.message.answer("Опишите причину спора:")
-        await callback.message.delete()
+    order = await db.get_order_by_key(callback.message.caption.split('\n')[0].split(' ')[1][1:])
+    if await db.if_order_exists(order):
+        await callback.message.edit_reply_markup(keyboard.clear_ikb())
+        await st.UserStates.pre_exclamation_state.set()
+        async with state.proxy() as data:
+            data['order'] = order
+            await callback.message.answer("Опишите причину спора:")
+    else:
+        await callback.message.edit_reply_markup(keyboard.clear_ikb())
+        await callback.message.answer(f"Заказ №{order} числится неактивным!")
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.pre_exclamation_state)
@@ -130,42 +165,45 @@ async def pre_exclamation(message, state: FSMContext):
 async def send_exclamation(message, state: FSMContext):
     if message.text == "Да":
         async with state.proxy() as data:
-            if data['order']['user_id'] == message.chat.id:
-                if data['order']['photo']:
-                    await bot.send_photo(config.main_account, photo=data['order']['photo'],
-                                         caption=f"СПОР(З)\nЗаказ {data['order']['order_id']}\n"
-                                                 f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
-                                                 f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
-                                                 f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
-                                         reply_markup=keyboard.exclamation_ikb())
+            if await db.if_order_exists(data['order']['order_id']):
+                if data['order']['user_id'] == message.chat.id:
+                    if data['order']['photo']:
+                        await bot.send_photo(config.main_account, photo=data['order']['photo'],
+                                             caption=f"СПОР(З)\nЗаказ {data['order']['order_id']}\n"
+                                                     f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
+                                                     f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
+                                                     f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
+                                             reply_markup=keyboard.exclamation_ikb())
+                    else:
+                        await bot.send_document(config.main_account, document=data['order']['doc'],
+                                                caption=f"СПОР(З)\nЗаказ {data['order']['order_id']}\n"
+                                                        f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
+                                                        f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
+                                                        f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
+                                                reply_markup=keyboard.exclamation_ikb())
+                    await bot.send_message(data['order']['worker_id'], f"Заказчик: {await db.get_user_link(data['order']['user_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
+                                                                       f"Причина: {data['reason']}")
                 else:
-                    await bot.send_document(config.main_account, document=data['order']['doc'],
-                                            caption=f"СПОР(З)\nЗаказ {data['order']['order_id']}\n"
-                                                    f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
-                                                    f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
-                                                    f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
-                                            reply_markup=keyboard.exclamation_ikb())
-                await bot.send_message(data['order']['worker_id'], f"Заказчик: {await db.get_user_link(data['order']['user_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
-                                                                   f"Причина: {data['reason']}")
+                    if data['order']['photo']:
+                        await bot.send_photo(config.main_account, photo=data['order']['photo'], caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
+                                                                f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
+                                                                f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
+                                                                f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
+                                                                reply_markup=keyboard.exclamation_ikb())
+                    else:
+                        await bot.send_document(config.main_account, document=data['order']['doc'],
+                                             caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
+                                                     f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
+                                                     f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
+                                                     f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
+                                             reply_markup=keyboard.exclamation_ikb())
+                    await bot.send_message(data['order']['user_id'], f"Работник: {await db.get_worker_link(data['order']['worker_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
+                                                                     f"Причина: {data['reason']}")
+                await message.answer("Жалоба отправлена!", reply_markup=keyboard.clear_kbd())
+                await db.set_order_state(data['order']['order_id'], 4)
+                await state.finish()
             else:
-                if data['order']['photo']:
-                    await bot.send_photo(config.main_account, photo=data['order']['photo'], caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
-                                                            f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
-                                                            f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
-                                                            f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
-                                                            reply_markup=keyboard.exclamation_ikb())
-                else:
-                    await bot.send_document(config.main_account, document=data['order']['doc'],
-                                         caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
-                                                 f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
-                                                 f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
-                                                 f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
-                                         reply_markup=keyboard.exclamation_ikb())
-                await bot.send_message(data['order']['user_id'], f"Работник: {await db.get_worker_link(data['order']['worker_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
-                                                                 f"Причина: {data['reason']}")
-        await message.answer("Жалоба отправлена!", reply_markup=keyboard.clear_kbd())
-        await db.set_order_state(data['order']['order_id'], 4)
-        await state.finish()
+                await message.answer(f"Закакз №{data['order']['order_id']} является неактивным!")
     elif message.text == "Нет":
         await message.answer("Жалоба удалена!", reply_markup=keyboard.clear_kbd())
         await state.finish()
@@ -267,46 +305,55 @@ async def user_send_description(message, state: FSMContext):
 @dp.callback_query_handler(text='accept_price', state='*')
 async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     work = callback.message.text.split('\n')[0].split(' ')[-1]
-    price = callback.message.text.split(' ')[-1][:-1]
+    if await db.if_order_exists(work):
+        price = callback.message.text.split(' ')[-1][:-1]
 
-    worker = await db.is_offer_available(work, price)
-    if worker is not None:
+        worker = await db.is_offer_available(work, price)
+        if worker is not None:
 
-        invoice = await config.crypto.create_invoice(asset='USDT', amount=price,
-                                                     paid_btn_url=f"https://t.me/LabaHelperBot?start={work}",
-                                                     paid_btn_name="callback", expires_in=1800)
-        await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id, price)
-        await callback.message.answer(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}USDT\nУ вас 30 минут на оплату")
-        # await st.UserStates.successful_user_payment_state.set()
+            invoice = await config.crypto.create_invoice(asset='USDT', amount=price,
+                                                         paid_btn_url=f"https://t.me/LabaHelperBot?start={work}",
+                                                         paid_btn_name="callback", expires_in=1800)
+            await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id, price)
+            await callback.message.edit_text(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}USDT\nУ вас 30 минут на оплату")
+            await callback.message.edit_reply_markup(keyboard.how_to_pay_ikb())
+            # await st.UserStates.successful_user_payment_state.set()
+        else:
+            await callback.message.edit_reply_markup(keyboard.clear_ikb())
+            await callback.message.edit_text(f"Извините, но срок давности этого предложения уже прошёл!")
     else:
-        await callback.message.answer(f"Извините, но срок давности этого предложения уже прошёл!")
-    await callback.message.delete()
+        await callback.message.edit_reply_markup(keyboard.clear_ikb())
+        await callback.message.edit_text(f"Ваш заказ №{work} неактивен")
 
 
 @dp.callback_query_handler(text='accept_solution', state='*')
 async def accept_price(callback: types.CallbackQuery, state: FSMContext):
     try:
-        # print(callback.message.caption.split('\n')[0].split(' ')[1][1:])
-        order = await db.get_order_by_key(callback.message.caption.split('\n')[0].split(' ')[1][1:])
-        b = True
-        while b:
-            try:
-                await config.crypto.transfer(user_id=order['worker_id'], asset='USDT', amount=order['price'],
-                                             spend_id=f"{uuid.uuid4()}")
-                await config.crypto.transfer(user_id=config.main_account, asset='USDT',
-                                             amount=order['my_price'] - order['price'], spend_id=f"{uuid.uuid4()}",
-                                             comment=f"Процент за работу {order['order_id']}")
-                b = False
-            except Exception as ex:
-                print(ex)
-                b = True
-        print(1)
-        await db.save_history(order)
-        await bot.send_message(order['worker_id'], f"Заказчик отметил, что заказ №{order['order_id']} был выполнен\n"
-                                                  f"На ваш счёт было зачислено {order['price']} USDT\n"
-                                                  f"Спасибо за сотрудничество!")
-        await callback.message.delete()
-        await callback.message.answer(f"Заказ был отмечен как выполненый!")
+        id = callback.message.caption.split('\n')[0].split(' ')[1][1:]
+        if await db.if_order_exists(id):
+            order = await db.get_order_by_key(id)
+            b = True
+            while b:
+                try:
+                    await config.crypto.transfer(user_id=order['worker_id'], asset='USDT', amount=order['price'],
+                                                 spend_id=f"{uuid.uuid4()}")
+                    await config.crypto.transfer(user_id=config.main_account, asset='USDT',
+                                                 amount=order['my_price'] - order['price'], spend_id=f"{uuid.uuid4()}",
+                                                 comment=f"Процент за работу {order['order_id']}")
+                    b = False
+                except Exception as ex:
+                    print(ex)
+                    b = True
+            print(1)
+            await db.save_history(order)
+            await bot.send_message(order['worker_id'], f"Заказчик отметил, что заказ №{order['order_id']} был выполнен\n"
+                                                      f"На ваш счёт было зачислено {order['price']} USDT\n"
+                                                      f"Спасибо за сотрудничество!")
+            await callback.message.delete()
+            await callback.message.answer(f"Заказ был отмечен как выполненый!")
+        else:
+            await callback.message.delete()
+            await callback.message.answer(f"Заказ №{id} неактивен")
 
     except Exception as ex:
         print(ex)
@@ -315,55 +362,52 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query_handler(text='delete_order', state='*')
 async def accept_order(callback: types.CallbackQuery, state: FSMContext):
-    order = await db.delete_order(callback.message.caption.split('\n')[0][1:])
-    await callback.message.answer(f"Ваш заказ №{order['order_id']} был успешно удалён!")
-    await callback.message.delete()
+    order = await db.delete_order(callback.message.caption.split('\n')[0].split(' ')[1][1:])
+    if await db.if_order_exists(order):
+        await callback.message.answer(f"Ваш заказ №{order['order_id']} был успешно удалён!")
+        await callback.message.delete()
+    else:
+        await callback.message.answer(f"Заказ №{order} неактивен")
 
 
 @dp.callback_query_handler(text='check_offers', state='*')
 async def user_check_offers(callback: types.CallbackQuery, state: FSMContext):
-    order_id = callback.message.caption.split('\n')[0][1:]
-    await db.get_price_offers(order_id, callback.message)
-
+    order_id = callback.message.caption.split('\n')[0].split(' ')[1][1:]
+    if await db.if_order_exists(order_id):
+        await db.get_price_offers(order_id, callback.message)
+        await callback.message.delete()
+    else:
+        await callback.message.answer(f"Заказ №{order_id} неактивен")
 
 #########################################################################
 ###WORKER PART##########################################################
 #########################################################################
-
-# @dp.message_handler(content_types=['text'], state=st.UserStates.worker_start_state)
-# async def worker_first_message(message, state: FSMContext):
-#     """User choose bot abilities"""
-#     if message.text == 'Получить список заказов':
-#         await message.answer(f"Доступные заказы: ")
-#         await db.printFreeOrders(message, bot)
-#
-#     elif message.text == 'Помощь':
-#         await message.answer("Этот раздел откроется в ближайшем будующем(")
-#     elif message.text == 'Mои работы':
-#         await db.get_worker_order(bot, message)
-#     else:
-#         await message.answer("Извините, но я вас не понимаю!", reply_markup=keyboard.user_start_kbd())
 
 
 @dp.callback_query_handler(text='free_orders', state='*')
 async def free_orders(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(f"Доступные заказы: ")
     await db.printFreeOrders(callback.message, bot)
-    # await callback.message.delete()
+    await callback.message.delete()
 
 
 @dp.callback_query_handler(text='worker_orders', state='*')
 async def free_orders(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_reply_markup(keyboard.clear_ikb())
     await db.get_worker_order(bot, callback.message)
 
 
 @dp.callback_query_handler(text='offer_price', state='*')
 async def offer_price(callback: types.CallbackQuery, state: FSMContext):
-    await st.UserStates.worker_price_state.set()
-    await callback.message.answer(f"Предложите свою цену в $:")
-    async with state.proxy() as data:
-        data['order'] = callback.message.caption[1:5]
-    await callback.message.delete()
+    order = callback.message.caption[1:5]
+    if await db.if_order_exists(order):
+        await st.UserStates.worker_price_state.set()
+        await callback.message.delete()
+        await callback.message.answer(f"Предложите свою цену в $:")
+        async with state.proxy() as data:
+            data['order'] = order
+    else:
+        await callback.message.answer(f"Заказ №{order} неактивен")
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.worker_price_state)
@@ -401,22 +445,26 @@ async def send_worker_price(message, state: FSMContext):
 
 @dp.callback_query_handler(text='order_executed', state='*')
 async def execute_order(callback: types.CallbackQuery, state: FSMContext):
-    order_id = callback.message.caption.split('\n')[0][1:]
-    order = await db.get_order_by_key(order_id)
-    if order['photo']:
-        await bot.send_photo(chat_id=order['user_id'], photo=order['photo'], caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
-                             f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
-                             reply_markup=keyboard.user_accept_solution_ikb())
-    else:
-        await bot.send_document(chat_id=order['user_id'], document=order['doc'],
-                                caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
-                                f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
-                                reply_markup=keyboard.user_accept_solution_ikb())
+    order_id = callback.message.caption.split('\n')[0].split(' ')[1][1:]
+    if await db.if_order_exists(order_id):
+        order = await db.get_order_by_key(order_id)
+        if order['photo']:
+            await bot.send_photo(chat_id=order['user_id'], photo=order['photo'], caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
+                                 f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
+                                 reply_markup=keyboard.user_accept_solution_ikb())
+        else:
+            await bot.send_document(chat_id=order['user_id'], document=order['doc'],
+                                    caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
+                                    f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
+                                    reply_markup=keyboard.user_accept_solution_ikb())
 
-    await callback.message.answer(f"Пользователю было отправлено сообщение о выполнении заказа!"
-                                  f"\nОжидайте подтверждения...")
-    await callback.message.delete()
-    await st.UserStates.worker_start_state.set()
+        await callback.message.answer(f"Пользователю было отправлено сообщение о выполнении заказа!"
+                                      f"\nОжидайте подтверждения...")
+        await callback.message.delete()
+        await st.UserStates.worker_start_state.set()
+    else:
+        await callback.message.answer(f"Заказ №{order_id} неактивен")
+
 
 ########################################################################
 ###MY PART#############################################################
@@ -425,16 +473,25 @@ async def execute_order(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query_handler(text='accept_order', state='*')
 async def accept_order(callback: types.CallbackQuery, state: FSMContext):
-    await db.accept_order(int(callback.message.caption.split('\n')[0]), bot)
-    await callback.message.delete()
+    order = callback.message.caption.split('\n')[0]
+    if await db.if_order_exists(order):
+        await db.accept_order(order, bot)
+        await callback.message.delete()
+    else:
+        await callback.message.answer(f"Заказ №{order} неактивен")
 
 
 @dp.callback_query_handler(text='decline_order', state='*')
 async def decline_order(callback: types.CallbackQuery, state: FSMContext):
-    await st.UserStates.admin_decline_order_state.set()
-    async with state.proxy() as data:
-        data['order'] = callback.message.caption.split('\n')[0]
-        await callback.message.answer("Укажите причину отказа:")
+    order = callback.message.caption.split('\n')[0]
+    if await db.if_order_exists(order):
+        await st.UserStates.admin_decline_order_state.set()
+        async with state.proxy() as data:
+            data['order'] = order
+            await callback.message.answer("Укажите причину отказа:")
+            await callback.message.edit_reply_markup(keyboard.clear_ikb())
+    else:
+        await callback.message.answer(f"Заказ №{order} неактивен")
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.admin_decline_order_state)
@@ -459,10 +516,11 @@ async def user_r(callback: types.CallbackQuery, state: FSMContext):
             print(ex)
             b = True
 
-    await db.save_history(order['order_id'])
+    await db.save_history(order)
     await bot.send_message(order['user_id'], f"Спор по заказу №{order['order_id']} был разрешён в вашу пользу\n"
                                              f"На ваш счёт ыло зачислено {order['my_price']} USDT")
     await bot.send_message(order['worker_id'], f"Cпор по заказу №{order['order_id']} был разрешён в пользу заказчика")
+    await callback.message.edit_reply_markup(keyboard.clear_ikb())
 
 
 @dp.callback_query_handler(text='worker_r', state='*')
@@ -483,6 +541,7 @@ async def worker_r(callback: types.CallbackQuery, state: FSMContext):
                                              f"На ваш счёт ыло зачислено {order['price']} USDT")
     await bot.send_message(order['user_id'],
                            f"Cпор по заказу №{order['order_id']} был разрешён в пользу исполнителя")
+    await callback.message.edit_reply_markup(keyboard.clear_ikb())
 
 
 @dp.callback_query_handler(text='decline_excl', state='*')
@@ -491,6 +550,7 @@ async def decline_excl(callback: types.CallbackQuery, state: FSMContext):
     await db.set_order_state(order['order_id'], 3)
     await bot.send_message(order['user_id'], f"Спор на заказ №{order['order_id']} был отменён")
     await bot.send_message(order['worker_id'], f"Спор на заказ №{order['order_id']} был отменён")
+    await callback.message.edit_reply_markup(keyboard.clear_ikb())
 
 
 if __name__ == '__main__':
