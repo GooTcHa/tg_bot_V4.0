@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from aiogram import Bot, types
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -123,6 +122,13 @@ async def help_menu(callback: types.CallbackQuery, state: FSMContext):
 async def how_to_pay(callback: types.CallbackQuery, state: FSMContext):
     user = callback.message.chat.id
     await callback.message.delete()
+    await bot.send_document(user, document=config.how_to_pay, caption="Инструкция по оплате")
+
+
+@dp.callback_query_handler(text='how_to_pay_order', state='*')
+async def how_to_pay(callback: types.CallbackQuery, state: FSMContext):
+    user = callback.message.chat.id
+    # await callback.message.edit_reply_markup(keyboard.clear_ikb())
     await bot.send_document(user, document=config.how_to_pay, caption="Инструкция по оплате")
 
 
@@ -477,6 +483,7 @@ async def accept_order(callback: types.CallbackQuery, state: FSMContext):
     if await db.if_order_exists(order):
         await db.accept_order(order, bot)
         await callback.message.delete()
+        await db.send_order_notice(bot)
     else:
         await callback.message.answer(f"Заказ №{order} неактивен")
 

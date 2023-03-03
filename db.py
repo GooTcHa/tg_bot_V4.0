@@ -52,7 +52,7 @@ async def saveUserOrder(message, data) -> None:
         try:
             with connection.cursor() as cur:
                 num = randint(1000, 9999)
-                cur.execute(f"""SELECT user_id FROM order_list""")
+                cur.execute(f"""SELECT order_id FROM order_list""")
                 while cur.fetchall().count(num) > 0:
                     num = randint(1000, 9999)
                 data['order'] = num
@@ -702,6 +702,31 @@ async def if_order_exists(order_id):
     except Exception as ex:
         print(ex)
 
+
+async def send_order_notice(bot):
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"SELECT worker_id FROM worker_list;")
+                arr = cur.fetchall()
+                for i in arr:
+                    await bot.send_message(i['worker_id'], f"Появился новый заказ\nПроверьте вкладку\"Список заказов\"")
+        finally:
+            connection.close()
+
+
+    except Exception as ex:
+        print(ex)
+
+
 if __name__ == '__main__':
     try:
         connection = pymysql.connect(
@@ -713,8 +738,12 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            cur.execute(f"DELETE FROM order_list WHERE order_id='{7507}';")
+            cur.execute(f"INSERT INTO order_list(order_id, user_id, language, photo,"
+                        f" text, deadline, state) VALUES('3123', '212','12123',"
+                        f" '24234', '2424', '324224', 0)")
             connection.commit()
 
     except Exception as ex:
         print(ex)
+
+

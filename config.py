@@ -12,10 +12,15 @@ how_to_oerder = "BQACAgUAAxkBAAIalWP_DrdvMz35lPQmIoonZgXmxHfoAAJcBwACSFH4V2DXuFn
 
 cf = 1.5
 
-host = 'localhost'
-user = 'root'
-password = 'gotcha'
-db_name = 'db'
+# host = 'localhost'
+# user = 'root'
+# password = 'gotcha'
+# db_name = 'db'
+
+host = '45.8.96.167'
+user = 'gen_user'
+password = 'dpp5tggbf6'
+db_name = 'default_db'
 
 
 languages = {'C++', 'Java', 'ASSEMBLER'}

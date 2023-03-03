@@ -33,7 +33,7 @@ def help_ikb() -> ReplyKeyboardMarkup:
 
 def how_to_pay_ikb() -> ReplyKeyboardMarkup:
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("Как оплатить заказ?", callback_data='how_to_pay_order')]
+        [InlineKeyboardButton("Как оплатить заказ?", callback_data='how_to_pay_order1')]
     ])
 
     return markup
