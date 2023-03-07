@@ -532,16 +532,23 @@ async def get_worker_order(bot, message):
                     await message.answer("У вас пока нет активных заказов")
                 else:
                     for order in orders:
+                        # if order['state'] == 2:
+                        #     if order['doc']:
+                        #         await bot.send_document(message.chat.id, order['doc'],
+                        #                                 caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nДедлайн: {order['deadline']}\nЗаказчик принял ваше предложение в {order['price']}$, заказ ожидает оплаты")
+                        #     else:
+                        #         await bot.send_photo(message.chat.id, order['photo'],
+                        #                              caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nДедлайн: {order['deadline']}\nЗаказчик принял ваше предложение в {order['price']}$, заказ ожидает оплаты")
                         if order['state'] == 3:
                             if order['doc']:
                                 await bot.send_document(message.chat.id, order['doc'],
-                                                        caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nДедлайн: {order['deadline']}",
+                                                        caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nЦена: {order['price']}\nДедлайн: {order['deadline']}",
                                                         reply_markup=keyboard.worker_work_ikb())
                             else:
                                 await bot.send_photo(message.chat.id, order['photo'],
-                                                     caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nДедлайн: {order['deadline']}",
+                                                     caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nЦена: {order['price']}\nДедлайн: {order['deadline']}",
                                                      reply_markup=keyboard.worker_work_ikb())
-                        else:
+                        elif order['state'] == 4:
                             if order['doc']:
                                 await bot.send_document(message.chat.id, order['doc'],
                                                         caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\nЗаказчик: {await get_user_link(order['user_id'])}\nЗаказ находится в споре")
@@ -718,10 +725,9 @@ async def send_order_notice(bot):
                 cur.execute(f"SELECT worker_id FROM worker_list;")
                 arr = cur.fetchall()
                 for i in arr:
-                    await bot.send_message(i['worker_id'], f"Появился новый заказ\nПроверьте вкладку\"Список заказов\"")
+                    await bot.send_message(int(i['worker_id']), f"Появился новый заказ\nПроверьте вкладку\"Список заказов\"",reply_markup=keyboard.free_orders())
         finally:
             connection.close()
-
 
     except Exception as ex:
         print(ex)

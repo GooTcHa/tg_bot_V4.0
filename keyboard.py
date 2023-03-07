@@ -160,3 +160,19 @@ def worker_taken_orders_ikb() -> InlineKeyboardMarkup:
     ])
 
     return markup
+
+
+def user_orders_ikb() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Мои заказы", callback_data='user_orders')]
+    ])
+
+    return markup
+
+
+def free_orders() -> InlineKeyboardMarkup:
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("Список заказов", callback_data='free_orders')]
+    ])
+
+    return markup

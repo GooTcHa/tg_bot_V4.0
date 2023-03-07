@@ -67,7 +67,7 @@ async def start_chat(message, state: FSMContext):
                 order = await db.order_was_paid(order)
                 worker_link = await db.get_worker_link(order['worker_id'])
                 await db.delete_offer(order['order_id'], order['worker_id'])
-                await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!")
+                await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!", reply_markup=keyboard.user_orders_ikb())
                 await bot.send_message(order['worker_id'], f"Ваше предложение в {order['price']}$ на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!", reply_markup=keyboard.worker_taken_orders_ikb())
                 await st.UserStates.user_start_state.set()
         else:
@@ -125,7 +125,7 @@ async def how_to_pay(callback: types.CallbackQuery, state: FSMContext):
     await bot.send_document(user, document=config.how_to_pay, caption="Инструкция по оплате")
 
 
-@dp.callback_query_handler(text='how_to_pay_order', state='*')
+@dp.callback_query_handler(text='how_to_pay_order1', state='*')
 async def how_to_pay(callback: types.CallbackQuery, state: FSMContext):
     user = callback.message.chat.id
     # await callback.message.edit_reply_markup(keyboard.clear_ikb())
@@ -148,7 +148,7 @@ async def contact_support(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query_handler(text='send_exclamation', state='*')
 async def exclamation(callback: types.CallbackQuery, state: FSMContext):
     order = await db.get_order_by_key(callback.message.caption.split('\n')[0].split(' ')[1][1:])
-    if await db.if_order_exists(order):
+    if await db.if_order_exists(order['order_id']):
         await callback.message.edit_reply_markup(keyboard.clear_ikb())
         await st.UserStates.pre_exclamation_state.set()
         async with state.proxy() as data:
@@ -156,7 +156,7 @@ async def exclamation(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer("Опишите причину спора:")
     else:
         await callback.message.edit_reply_markup(keyboard.clear_ikb())
-        await callback.message.answer(f"Заказ №{order} числится неактивным!")
+        await callback.message.answer(f"Заказ №{order['order_id']} числится неактивным!")
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.pre_exclamation_state)
@@ -219,24 +219,6 @@ async def send_exclamation(message, state: FSMContext):
 ############################################################################
 ###USER PART################################################################
 ############################################################################
-
-
-# @dp.message_handler(content_types=['text'], state=st.UserStates.user_start_state)
-# async def first_user_page_message(message, state: FSMContext):
-#     """User choose bot abilities"""
-#     if message.text == 'Заказать лабу':
-#         if await db.if_user_has_order(message.chat.id):
-#             await st.UserStates.user_choose_language_state.set()
-#             await message.answer(f"Выберите язык программирования", reply_markup=keyboard.languages_kbd())
-#         else:
-#             await message.answer(f"У вас уже есть активный заказ!")
-#
-#     elif message.text == 'Помощь':
-#         await message.answer("Этот раздел откроется в ближайшем будующем(")
-#     elif message.text == 'Mои заказы':
-#         await db.get_user_order(message, bot)
-#     else:
-#         await message.answer("Извините, но я вас не понимаю!")
 
 
 @dp.callback_query_handler(text='create_order', state='*')
@@ -341,7 +323,7 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
             b = True
             while b:
                 try:
-                    await config.crypto.transfer(user_id=order['worker_id'], asset='USDT', amount=order['price'],
+                    await config.crypto.transfer(user_id=int(order['worker_id']), asset='USDT', amount=order['price'],
                                                  spend_id=f"{uuid.uuid4()}")
                     await config.crypto.transfer(user_id=config.main_account, asset='USDT',
                                                  amount=order['my_price'] - order['price'], spend_id=f"{uuid.uuid4()}",
@@ -368,9 +350,10 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query_handler(text='delete_order', state='*')
 async def accept_order(callback: types.CallbackQuery, state: FSMContext):
-    order = await db.delete_order(callback.message.caption.split('\n')[0].split(' ')[1][1:])
+    order = callback.message.caption.split('\n')[0].split(' ')[1][1:]
     if await db.if_order_exists(order):
-        await callback.message.answer(f"Ваш заказ №{order['order_id']} был успешно удалён!")
+        await db.delete_order(order)
+        await callback.message.answer(f"Ваш заказ №{order} был успешно удалён!")
         await callback.message.delete()
     else:
         await callback.message.answer(f"Заказ №{order} неактивен")
@@ -516,7 +499,7 @@ async def user_r(callback: types.CallbackQuery, state: FSMContext):
     b = True
     while b:
         try:
-            await config.crypto.transfer(user_id=order['user_id'], asset='USDT', amount=order['my_price'],
+            await config.crypto.transfer(user_id=int(order['user_id']), asset='USDT', amount=order['my_price'],
                                          spend_id=f"{uuid.uuid4()}")
             b = False
         except Exception as ex:
@@ -536,7 +519,7 @@ async def worker_r(callback: types.CallbackQuery, state: FSMContext):
     b = True
     while b:
         try:
-            await config.crypto.transfer(user_id=order['worker_id'], asset='USDT', amount=order['price'],
+            await config.crypto.transfer(user_id=int(order['worker_id']), asset='USDT', amount=order['price'],
                                          spend_id=f"{uuid.uuid4()}")
             b = False
         except Exception as ex:
