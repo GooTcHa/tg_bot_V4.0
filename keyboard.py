@@ -39,13 +39,12 @@ def how_to_pay_ikb() -> ReplyKeyboardMarkup:
     return markup
 
 
-def languages_kbd() -> ReplyKeyboardMarkup:
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(KeyboardButton("C++"),
-               KeyboardButton("Java"),
-               KeyboardButton("ASSEMBLER"))
-
-    return markup
+def languages_ikb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton("C++", callback_data='C++')],
+        [InlineKeyboardButton("Java", callback_data='Java')],
+        [InlineKeyboardButton("Assembler", callback_data='Assembler')]
+    ])
 
 
 def bool_kbd() -> ReplyKeyboardMarkup:

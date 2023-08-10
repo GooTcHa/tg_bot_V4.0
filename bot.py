@@ -17,20 +17,19 @@ import states as st
 import config
 import db
 
-
 logging.basicConfig(format=u'%(filename)+13s [ LINE:%(lineno)-4s] %(levelname)-8s [%(asctime)s] %(message)s',
                     level=logging.INFO)
-
 
 loop = asyncio.get_event_loop()
 storage = MemoryStorage()
 bot = Bot(token=config.token)
 dp = Dispatcher(bot, loop=loop, storage=storage)
+
+
 # dp.middleware.setup(LoggingMiddleware())
 
 
 async def on_startup(dp):
-
     await bot.set_webhook(config.WEBHOOK_URL)
 
 
@@ -51,9 +50,6 @@ async def on_shutdown(dp):
 
 @dp.message_handler(commands=['start'], state='*')
 async def start_chat(message, state: FSMContext):
-    # arr = (await config.crypto.get_exchange_rates())
-    # for i in arr:
-    #     print(i)
     """User start chat"""
     if len(message.text.split(" ")) == 2:
         order = message.text.split(" ")[1]
@@ -67,8 +63,12 @@ async def start_chat(message, state: FSMContext):
                 order = await db.order_was_paid(order)
                 worker_link = await db.get_worker_link(order['worker_id'])
                 await db.delete_offer(order['order_id'], order['worker_id'])
-                await message.answer(f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!", reply_markup=keyboard.user_orders_ikb())
-                await bot.send_message(order['worker_id'], f"Ваше предложение в {order['price']}$ на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!", reply_markup=keyboard.worker_taken_orders_ikb())
+                await message.answer(
+                    f"Заказ №{order['order_id']} успешно оплачен!\nВот ссылка на исполнителя: {worker_link}\nСпасибо за сотрудничество!",
+                    reply_markup=keyboard.user_orders_ikb())
+                await bot.send_message(order['worker_id'],
+                                       f"Ваше предложение в {order['price']}$ на заказ №{order['order_id']} было принято!\nCcылка на заказчика: @{message.from_user.username}\nСпасибо за сотрудничесвто!",
+                                       reply_markup=keyboard.worker_taken_orders_ikb())
                 await st.UserStates.user_start_state.set()
         else:
             await message.answer(f"Заказ №{order} не числится активным")
@@ -91,7 +91,8 @@ async def menu(message, state: FSMContext):
     if await db.ifUserIsWorker(message):
         await db.update_worker_info(message)
         await st.UserStates.worker_start_state.set()
-        await message.answer(f"Вас приветствует LabaHelperBot - бот для помощи в написании лобораторных работ", reply_markup=keyboard.worker_start_ikb())
+        await message.answer(f"Вас приветствует LabaHelperBot - бот для помощи в написании лобораторных работ",
+                             reply_markup=keyboard.worker_start_ikb())
     else:
 
         await st.UserStates.user_start_state.set()
@@ -164,7 +165,8 @@ async def pre_exclamation(message, state: FSMContext):
     async with state.proxy() as data:
         data['reason'] = message.text
         await st.UserStates.exclamation_state.set()
-        await message.answer(f"Причина спора: {message.text}\n\nВы уверены, что хотите отправить?", reply_markup=keyboard.bool_kbd())
+        await message.answer(f"Причина спора: {message.text}\n\nВы уверены, что хотите отправить?",
+                             reply_markup=keyboard.bool_kbd())
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.exclamation_state)
@@ -187,24 +189,27 @@ async def send_exclamation(message, state: FSMContext):
                                                         f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
                                                         f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
                                                 reply_markup=keyboard.exclamation_ikb())
-                    await bot.send_message(data['order']['worker_id'], f"Заказчик: {await db.get_user_link(data['order']['user_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
-                                                                       f"Причина: {data['reason']}")
+                    await bot.send_message(data['order']['worker_id'],
+                                           f"Заказчик: {await db.get_user_link(data['order']['user_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
+                                           f"Причина: {data['reason']}")
                 else:
                     if data['order']['photo']:
-                        await bot.send_photo(config.main_account, photo=data['order']['photo'], caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
-                                                                f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
-                                                                f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
-                                                                f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
-                                                                reply_markup=keyboard.exclamation_ikb())
-                    else:
-                        await bot.send_document(config.main_account, document=data['order']['doc'],
+                        await bot.send_photo(config.main_account, photo=data['order']['photo'],
                                              caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
                                                      f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
                                                      f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
                                                      f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
                                              reply_markup=keyboard.exclamation_ikb())
-                    await bot.send_message(data['order']['user_id'], f"Работник: {await db.get_worker_link(data['order']['worker_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
-                                                                     f"Причина: {data['reason']}")
+                    else:
+                        await bot.send_document(config.main_account, document=data['order']['doc'],
+                                                caption=f"СПОР(Р)\nЗаказ {data['order']['order_id']}\n"
+                                                        f"Язык: {data['order']['language']}\nУсловие: {data['order']['text']}\n"
+                                                        f"Причина: {data['reason']}\nЗаказчик: {await db.get_user_link(data['order']['user_id'])}\n"
+                                                        f"Исполнитель: {await db.get_worker_link(data['order']['worker_id'])}",
+                                                reply_markup=keyboard.exclamation_ikb())
+                    await bot.send_message(data['order']['user_id'],
+                                           f"Работник: {await db.get_worker_link(data['order']['worker_id'])} открыл спор на заказ №{data['order']['order_id']}\n"
+                                           f"Причина: {data['reason']}")
                 await message.answer("Жалоба отправлена!", reply_markup=keyboard.clear_kbd())
                 await db.set_order_state(data['order']['order_id'], 4)
                 await state.finish()
@@ -216,6 +221,7 @@ async def send_exclamation(message, state: FSMContext):
     else:
         await message.answer("Я вас не понимаю, воспользуйтесь кнопками!")
 
+
 ############################################################################
 ###USER PART################################################################
 ############################################################################
@@ -225,8 +231,8 @@ async def send_exclamation(message, state: FSMContext):
 async def create_order(callback: types.CallbackQuery, state: FSMContext):
     if await db.if_user_has_order(callback.message.chat.id):
         await st.UserStates.user_choose_language_state.set()
-        await callback.message.answer(f"Выберите язык программирования", reply_markup=keyboard.languages_kbd())
-        await callback.message.delete()
+        await callback.message.edit_text(f"Выберите язык программирования")
+        await callback.message.edit_reply_markup(keyboard.languages_ikb())
     else:
         await callback.message.answer(f"У вас есть один активный заказ!")
 
@@ -236,58 +242,60 @@ async def user_orders(callback: types.CallbackQuery, state: FSMContext):
     await db.get_user_order(callback.message, bot)
 
 
-@dp.message_handler(content_types=['text'], state=st.UserStates.user_choose_language_state)
-async def save_user_language(message, state: FSMContext):
-    if message.text in config.languages != -1:
-        async with state.proxy() as data:
-            data['language'] = message.text
-            await st.UserStates.user_send_photo_state.set()
-            await message.answer(f"Вы выбрали {data['language']}\nОтправте фотографию вашего условия.",
-                                 reply_markup=keyboard.clear_kbd())
-    else:
-        await message.answer("Я тебя не понимаю!\nПопробуй ещё раз!", reply_markup=keyboard.languages_kbd())
+@dp.callback_query_handler(state=st.UserStates.user_choose_language_state)
+async def save_user_language(callback: types.CallbackQuery, state: FSMContext):
+    await db.addTaskLanguage(callback)
+    await st.UserStates.user_send_photo_state.set()
+    await callback.message.edit_reply_markup(keyboard.clear_ikb())
+    await callback.message.edit_text(f"Вы выбрали {callback.data}\nОтправте фотографию вашего условия или "
+                                     f"текстовый документ, содержащий его.")
 
 
-@dp.message_handler(lambda message: not message.photo, state=st.UserStates.user_send_photo_state)
-async def user_wrong_photo_message(message, state: FSMContext):
-    await message.answer(f"Это не фото! Попробуйте ещё раз!")
+@dp.message_handler(lambda message: not message.photo or not message.document,
+                    state=st.UserStates.user_send_photo_state)
+async def user_wrong_photo_message(message: types.message, state: FSMContext):
+    await message.answer(f"Неподходящий формат! Попробуйте ещё раз!")
 
 
 @dp.message_handler(content_types=['photo'], state=st.UserStates.user_send_photo_state)
-async def save_user_photo_as_photo(message, state: FSMContext):
-    async with state.proxy() as data:
-        data['photo'] = message.photo[0].file_id
-        data['doc'] = None
-        await st.UserStates.user_send_description_state.set()
-        await message.answer(f"Фотография условия сохранена!\nОсталось ввести дополнительные сведения"
-                             f" о лабораторной: ", reply_markup=keyboard.empty_description_kbd())
+async def save_user_photo_as_photo(message: types.Message, state: FSMContext):
+    await db.addCondition(message, message.photo[0].file_id, '')
+    await st.UserStates.user_send_description_state.set()
+    await message.answer(f"Фотография условия сохранена!\nДобавьте дополнительные сведения"
+                         f" о лабораторной: ")
 
 
 @dp.message_handler(content_types=['document'], state=st.UserStates.user_send_photo_state)
-async def save_user_photo_as_doc(message, state: FSMContext):
-    async with state.proxy() as data:
-        data['doc'] = message.document.file_id
-        data['photo'] = None
+async def save_user_photo_as_doc(message: types.message, state: FSMContext):
+    # await bot.send_document(message.chat.id, message.document.file_id)
+    print(message.document.file_name.split('.')[-1])
+    if not message.document.file_name.split('.')[-1] in ('txt', 'png', 'doc', 'docx', 'pdf'):
+        await message.answer("Текстовый документ должен быть с одним из приведённых расширений:\n"
+                             ".txt, .png, .doc, .docx, .pdf")
+    else:
+        await db.addCondition(message, '', message.document.file_id)
         await st.UserStates.user_send_description_state.set()
-        await message.answer(f"Фотография условия сохранена!\nОсталось ввести дополнительные сведения"
-                             f" о лабораторной: ", reply_markup=keyboard.empty_description_kbd())
+        await message.answer(f"Условие сохранено!\nВведите дополнительные сведения к лабороторной")
 
 
 @dp.message_handler(content_types=['text'], state=st.UserStates.user_send_description_state)
 async def user_send_description(message, state: FSMContext):
-    async with state.proxy() as data:
-        data['descr'] = message.text
-        await db.saveUserOrder(message, data)
-        if data['doc']:
-            await bot.send_document(config.main_account, data['doc'], caption=f"{data['order']}\nЯзык: {data['language']}\n"
-                                                                              f"Описание: {message.text}",
-                                    reply_markup=keyboard.accept_order_ikb())
-        else:
-            await bot.send_photo(config.main_account, data['photo'], caption=f"{data['order']}\nЯзык: {data['language']}\n"
-                                                                             f"Описание: {message.text}",
-                                 reply_markup=keyboard.accept_order_ikb())
-        await st.UserStates.user_start_state.set()
-        await message.answer(f"Ваш заказ №{data['order']} сохранён и отправлен на проверку!", reply_markup=keyboard.clear_kbd())
+    await db.addDescription(message)
+    # await message.answer(f"Ваш заказ №{data['order']} сохранён и отправлен на проверку!",
+    #                      reply_markup=keyboard.clear_kbd())
+    await st.UserStates.user_set_price.set()
+    await message.answer(f"Отлично! Осталось указать цену", reply_markup=keyboard.clear_kbd())
+
+
+@dp.message_handler(content_types=['text'], state=st.UserStates.user_set_price)
+async def user_set_price(message: types.message, state: FSMContext):
+    try:
+        price = float(message.text)
+        await db.saveUserOrder(bot, message, price)
+
+    except Exception as ex:
+        print(ex)
+        await message.answer('Цена должна быть числом!')
 
 
 @dp.callback_query_handler(text='accept_price', state='*')
@@ -303,7 +311,8 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
                                                          paid_btn_url=f"https://t.me/LabaHelperBot?start={work}",
                                                          paid_btn_name="callback", expires_in=1800)
             await db.user_choose_price(callback.message.chat.id, worker, work, invoice.invoice_id, price)
-            await callback.message.edit_text(f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}USDT\nУ вас 30 минут на оплату")
+            await callback.message.edit_text(
+                f"Отлично!\n Вот ссылка на оплату: {invoice.pay_url}\nЦена: {price}USDT\nУ вас 30 минут на оплату")
             await callback.message.edit_reply_markup(keyboard.how_to_pay_ikb())
             # await st.UserStates.successful_user_payment_state.set()
         else:
@@ -334,9 +343,10 @@ async def accept_price(callback: types.CallbackQuery, state: FSMContext):
                     b = True
             print(1)
             await db.save_history(order)
-            await bot.send_message(order['worker_id'], f"Заказчик отметил, что заказ №{order['order_id']} был выполнен\n"
-                                                      f"На ваш счёт было зачислено {order['price']} USDT\n"
-                                                      f"Спасибо за сотрудничество!")
+            await bot.send_message(order['worker_id'],
+                                   f"Заказчик отметил, что заказ №{order['order_id']} был выполнен\n"
+                                   f"На ваш счёт было зачислено {order['price']} USDT\n"
+                                   f"Спасибо за сотрудничество!")
             await callback.message.delete()
             await callback.message.answer(f"Заказ был отмечен как выполненый!")
         else:
@@ -367,6 +377,7 @@ async def user_check_offers(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.delete()
     else:
         await callback.message.answer(f"Заказ №{order_id} неактивен")
+
 
 #########################################################################
 ###WORKER PART##########################################################
@@ -424,7 +435,8 @@ async def send_worker_price(message, state: FSMContext):
             async with state.proxy() as data:
                 user = await db.get_user_id(data['order'])
                 await db.save_offer(data['order'], message.chat.id, num)
-                await bot.send_message(user, f"На ваш заказ № {data['order']}\nПришло предложение цены: {num + config.cf}$",
+                await bot.send_message(user,
+                                       f"На ваш заказ № {data['order']}\nПришло предложение цены: {num + config.cf}$",
                                        reply_markup=keyboard.user_accept_price_ikb())
                 await message.answer(f"Ваше предложение в {num}$ было отправлено")
                 await st.UserStates.worker_start_state.set()
@@ -438,13 +450,14 @@ async def execute_order(callback: types.CallbackQuery, state: FSMContext):
     if await db.if_order_exists(order_id):
         order = await db.get_order_by_key(order_id)
         if order['photo']:
-            await bot.send_photo(chat_id=order['user_id'], photo=order['photo'], caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
-                                 f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
+            await bot.send_photo(chat_id=order['user_id'], photo=order['photo'],
+                                 caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
+                                         f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
                                  reply_markup=keyboard.user_accept_solution_ikb())
         else:
             await bot.send_document(chat_id=order['user_id'], document=order['doc'],
                                     caption=f"Заказ №{order['order_id']}\nУсловие: {order['text']}\n\n"
-                                    f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
+                                            f"{await db.get_worker_link(order['worker_id'])} отметил ваш заказ как выполненный",
                                     reply_markup=keyboard.user_accept_solution_ikb())
 
         await callback.message.answer(f"Пользователю было отправлено сообщение о выполнении заказа!"
@@ -528,7 +541,7 @@ async def worker_r(callback: types.CallbackQuery, state: FSMContext):
 
     await db.save_history(order)
     await bot.send_message(order['worker_id'], f"Спор по заказу №{order['order_id']} был разрешён в вашу пользу\n"
-                                             f"На ваш счёт ыло зачислено {order['price']} USDT")
+                                               f"На ваш счёт ыло зачислено {order['price']} USDT")
     await bot.send_message(order['user_id'],
                            f"Cпор по заказу №{order['order_id']} был разрешён в пользу исполнителя")
     await callback.message.edit_reply_markup(keyboard.clear_ikb())
@@ -555,7 +568,5 @@ if __name__ == '__main__':
     #     on_shutdown=on_shutdown,
     #     skip_updates=True,
     #     host=config.WEBAPP_HOST,
-    #     port=int(os.environ.get("PORT", 443))
+    #     port=config.WEBAPP_PORT
     # )
-
-

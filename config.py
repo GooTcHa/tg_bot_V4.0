@@ -8,7 +8,7 @@ token = '5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE'
 how_to_pay = "BQACAgUAAxkBAAIaa2P-9jSXZh8-g2rdK4nt12Dfe2HqAAIyBwACSFH4VxKHGGvQLXBsLgQ"
 how_to_oerder = "BQACAgUAAxkBAAIalWP_DrdvMz35lPQmIoonZgXmxHfoAAJcBwACSFH4V2DXuFnPkdFlLgQ"
 
-#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://81.200.157.100/
+#https://api.telegram.org/bot5579843295:AAF11lonl-kELUgF50-Tp3arYgw0BeRzOeE/setwebhook?url=https://45.8.230.168/
 
 cf = 1.5
 
@@ -17,10 +17,10 @@ cf = 1.5
 # password = 'gotcha'
 # db_name = 'db'
 
-host = '45.8.96.167'
-user = 'gen_user'
-password = 'dpp5tggbf6'
-db_name = 'default_db'
+host = 'localhost'
+user = 'root'
+password = 'gotcha'
+db_name = 'db'
 
 
 languages = {'C++', 'Java', 'ASSEMBLER'}
@@ -34,14 +34,15 @@ crypto = AioCryptoPay(token='6615:AAqfEMEaHHvCrFRPvVnWuJ96xzvvur8Q1fq', network=
 
 ##########################################################
 
-WEBHOOK_HOST = 'https://81.200.157.100'
+WEBHOOK_HOST = '45.8.230.168'
 WEBHOOK_PATH = ''
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
-WEBAPP_HOST = '81.200.157.100'
-WEBAPP_PORT = 22
+WEBAPP_HOST = '45.8.230.168'
+WEBAPP_PORT = 443
 
 ##########################################################
+
 
 class HTTPMethods(str, Enum):
     """Available HTTP methods."""

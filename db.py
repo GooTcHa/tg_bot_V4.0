@@ -1,7 +1,9 @@
 import datetime
 from random import randint
 
+import aiogram
 import pymysql
+from aiogram import types
 
 import config
 from config import host, user, password, db_name
@@ -37,7 +39,7 @@ async def ifUserIsWorker(message) -> bool:
         print(ex)
 
 
-async def saveUserOrder(message, data) -> None:
+async def addTaskLanguage(callback: types.CallbackQuery) -> None:
     """SAVE USER ORDER"""
     try:
         connection = pymysql.connect(
@@ -55,19 +57,102 @@ async def saveUserOrder(message, data) -> None:
                 cur.execute(f"""SELECT order_id FROM order_list""")
                 while cur.fetchall().count(num) > 0:
                     num = randint(1000, 9999)
-                data['order'] = num
-                date = datetime.date.today()
-                day = datetime.timedelta(days=2)
-                date = date + day
-                if data['doc']:
-                    cur.execute(f"INSERT INTO order_list(order_id, user_id, language, doc,"
-                                f" text, deadline, state) VALUES('{num}', '{message.chat.id}','{data['language']}',"
-                                f" '{data['doc']}', '{data['descr']}', '{date}', 0)")
-                else:
-                    cur.execute(f"INSERT INTO order_list(order_id, user_id, language, photo,"
-                                f" text, deadline, state) VALUES('{num}', '{message.chat.id}','{data['language']}',"
-                                f" '{data['photo']}', '{data['descr']}', '{date}', 0)")
+                cur.execute(f"INSERT INTO order_list(order_id, user_id, language, state) VALUES('{num}',"
+                            f" '{callback.from_user.id}', '{callback.data}', '0');")
                 connection.commit()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print("error1")
+        print(ex)
+
+
+async def addCondition(message: types.Message, photo, doc) -> None:
+    """SAVE USER ORDER"""
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("Database was connected!")
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"UPDATE order_list SET photo='{photo}', doc='{doc}' WHERE user_id="
+                            f"'{message.from_user.id}' AND state='0';")
+                connection.commit()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print("error1")
+        print(ex)
+
+
+async def addDescription(message: types.Message) -> None:
+    """SAVE USER ORDER"""
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("Database was connected!")
+        try:
+            with connection.cursor() as cur:
+                cur.execute(f"UPDATE order_list SET text='{message.text}' WHERE user_id = '{message.from_user.id}' AND state = '0';")
+                connection.commit()
+
+        finally:
+            connection.close()
+
+    except Exception as ex:
+        print("error1")
+        print(ex)
+
+
+async def saveUserOrder(bot, message: types.Message, price) -> None:
+    """SAVE USER ORDER"""
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("Database was connected!")
+        try:
+            with connection.cursor() as cur:
+                # date = datetime.date.today()
+                # day = datetime.timedelta(days=2)
+                # date = date + day
+                cur.execute(f"UPDATE order_list SET price='{price}', state='1' WHERE user_id="
+                            f"'{message.from_user.id}' AND state='0';")
+                connection.commit()
+                cur.execute(f"SELECT * FROM order_list WHERE user_id='{message.from_user.id}' AND state = '1';")
+                info = cur.fetchall()[0]
+
+                if not info['doc'] == '':
+                    await bot.send_document(config.main_account, info['doc'],
+                                            caption=f"{info['order_id']}\nЯзык: {info['language']}\n"
+                                                    f"Описание: {info['text']}\nЦена: {price}",
+                                            reply_markup=keyboard.accept_order_ikb())
+                else:
+                    await bot.send_photo(config.main_account, info['photo'],
+                                         caption=f"{info['order_id']}\nЯзык: {info['language']}\n"
+                                                 f"Описание: {info['text']}\nЦена: {price}",
+                                         reply_markup=keyboard.accept_order_ikb())
         finally:
             connection.close()
 
@@ -744,10 +829,8 @@ if __name__ == '__main__':
             cursorclass=pymysql.cursors.DictCursor
         )
         with connection.cursor() as cur:
-            cur.execute(f"INSERT INTO order_list(order_id, user_id, language, photo,"
-                        f" text, deadline, state) VALUES('3123', '212','12123',"
-                        f" '24234', '2424', '324224', 0)")
-            connection.commit()
+            cur.execute(f"SELECT * FROM order_list")
+            print(cur.fetchall())
 
     except Exception as ex:
         print(ex)

@@ -11,6 +11,7 @@ class UserStates(StatesGroup):
     user_choose_language_state = State()
     user_send_photo_state = State()
     user_send_description_state = State()
+    user_set_price = State()
     successful_user_payment_state = State()
     user_enter_reject_state = State()
 
